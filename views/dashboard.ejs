@@ -1,1 +1,52 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard - Premium Panel</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+
+<div class="panel">
+
+    <h2>
+        Welcome, <%= user.username %>
+    </h2>
+
+
+    <div class="card">
+
+        <h3>Balance</h3>
+
+        <p>
+            ৳ <%= user.balance %>
+        </p>
+
+    </div>
+
+
+    <div class="menu">
+
+        <a href="/wallet">
+            Wallet
+        </a>
+
+
+        <a href="/submit">
+            Submit Request
+        </a>
+
+
+        <a href="/auth/logout">
+            Logout
+        </a>
+
+    </div>
+
+
+</div>
+
+
+</body>
+</html>
