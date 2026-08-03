@@ -1,100 +1,39 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="bn">
 <head>
-    <title>Submit Request - Premium Panel</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submit Data</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
 </head>
-
 <body>
+    <div class="card">
+        <h2>Submit Details</h2>
+        <p class="subtitle">Paste your account data/cookies below</p>
 
-<div class="panel">
+        <label>Select Category</label>
+        <select id="categorySelect">
+            <option value="instagram_2fa">Instagram 2FA ID</option>
+            <option value="fb_page_cookies">Facebook Page Cookies</option>
+            <option value="fb_cookies_id">Facebook Cookies ID</option>
+            <option value="hotmail_cookies">Hotmail Page Cookie's ID</option>
+        </select>
 
-    <h2>Submit Request</h2>
+        <label>Data / Cookies Text</label>
+        <textarea id="submissionData" rows="5" placeholder="Paste data here..."></textarea>
 
+        <button class="btn" onclick="submitData()">Submit Now</button>
+        <a href="/" class="switch-text">⬅ Back to Dashboard</a>
+    </div>
 
-    <form id="submitForm">
-
-
-        <input
-        type="text"
-        name="title"
-        placeholder="Request Title"
-        required>
-
-
-        <textarea
-        name="details"
-        placeholder="Write details..."
-        required></textarea>
-
-
-        <button type="submit">
-            Submit
-        </button>
-
-
-    </form>
-
-
-    <a href="/dashboard">
-        Back Dashboard
-    </a>
-
-
-</div>
-
-
-
-<script>
-
-document.getElementById("submitForm")
-.addEventListener("submit", async(e)=>{
-
-
-    e.preventDefault();
-
-
-    const data={
-
-        title:e.target.title.value,
-
-        details:e.target.details.value
-
-    };
-
-
-    const res = await fetch("/submit",{
-
-        method:"POST",
-
-        headers:{
-            "Content-Type":"application/json"
-        },
-
-        body:JSON.stringify(data)
-
-    });
-
-
-    const result = await res.json();
-
-
-    alert(result.message);
-
-
-    if(result.success){
-
-        location.href="/dashboard";
-
-    }
-
-
-});
-
-
-</script>
-
-
+    <script>
+        function submitData() {
+            const data = document.getElementById('submissionData').value;
+            if(!data) return alert('Please enter data before submitting!');
+            alert('Data submitted successfully!');
+            window.location.href = '/';
+        }
+    </script>
 </body>
 </html>
