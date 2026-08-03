@@ -5,12 +5,24 @@ const PORT = process.env.PORT || 3000;
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// In-Memory Database (Categories & Submitted IDs)
-let categories = ["Free Fire", "Facebook", "Gmail", "Page"];
+// In-Memory Database
+let categories = [
+    { name: "Free Fire", price: 50 },
+    { name: "Facebook", price: 100 },
+    { name: "Gmail", price: 30 },
+    { name: "Page", price: 200 }
+];
+
 let submittedIds = [
     { id: 1, category: "Free Fire", details: "Level 72, Pass: xyz123", status: "Pending" },
     { id: 2, category: "Facebook", details: "5k Followers, Link: fb.com/...", status: "Pending" }
 ];
+
+// Admin saved UIDs for reporting & matching (Category-wise)
+let adminReports = {
+    "Free Fire": ["UID101", "UID102", "UID103"],
+    "Facebook": ["FB999", "FB888"]
+};
 
 // ================= USER PANEL ROUTE =================
 app.get('/', (req, res) => {
@@ -59,6 +71,7 @@ app.get('/', (req, res) => {
             th { background: rgba(15, 23, 42, 0.8); color: #38bdf8; font-weight: 600; }
             td { background: rgba(30, 41, 59, 0.4); border-bottom: 1px solid rgba(255,255,255,0.05); color: #e2e8f0; }
             .badge-pending { background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+            .badge-success { background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
             .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
         </style>
     </head>
@@ -67,7 +80,7 @@ app.get('/', (req, res) => {
             <button class="menu-btn" onclick="toggleSidebar()"><i class="fa-solid fa-bars-staggered"></i></button>
             <div class="user-info">
                 <span>স্বাগতম, রাহিম!</span>
-                <div class="balance-box">💰 ৳1,250</div>
+                <div class="balance-box" id="userBalance">💰 ৳1,250</div>
             </div>
         </div>
 
@@ -96,7 +109,7 @@ app.get('/', (req, res) => {
                     <label>Select Category:</label>
                     <select id="category" required>
                         <option value="">-- Select Category --</option>
-                        ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
+                        ${categories.map(c => `<option value="${c.name}">${c.name} (Price: ৳${c.price})</option>`).join('')}
                     </select>
                 </div>
                 <div class="form-group">
@@ -117,7 +130,7 @@ app.get('/', (req, res) => {
                             <tr>
                                 <td>${item.category}</td>
                                 <td>${item.details}</td>
-                                <td><span class="badge-pending">${item.status}</span></td>
+                                <td><span class="${item.status === 'Success' ? 'badge-success' : 'badge-pending'}">${item.status}</span></td>
                                 <td><button class="delete-btn" onclick="this.parentElement.parentElement.remove()">Delete</button></td>
                             </tr>
                         `).join('')}
@@ -126,23 +139,27 @@ app.get('/', (req, res) => {
             </div>
         </div>
 
-        <!-- Report Section -->
+        <!-- Report Section (User UID Matching & Claim) -->
         <div id="reportSection" class="container">
-            <h2>📊 ID Submission Report Form 📊</h2>
-            <form onsubmit="submitReport(event)">
-                <div class="form-group">
-                    <label>Select Category:</label>
-                    <select id="reportCategory" required>
-                        <option value="">-- Select Category --</option>
-                        ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Account Details:</label>
-                    <textarea id="reportDetails" placeholder="রিপোর্টের বিস্তারিত লিখুন..." required></textarea>
-                </div>
-                <button type="submit" class="submit-btn">Submit Report</button>
-            </form>
+            <h2>📊 ID Report & Claim Box 📊</h2>
+            <div class="form-group">
+                <label>Select Category:</label>
+                <select id="userReportCategory" onchange="clearUserMatchResult()">
+                    <option value="">-- Select Category --</option>
+                    ${categories.map(c => `<option value="${c.name}">${c.name} (৳${c.price} per valid ID)</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Paste UIDs (Each in a new line or comma separated):</label>
+                <textarea id="userUidsInput" placeholder="UID101, UID999, etc..."></textarea>
+            </div>
+            <button type="button" class="submit-btn" onclick="checkUserUids()"><i class="fa-solid fa-magnifying-glass"></i> Check & Match UIDs</button>
+
+            <div id="matchResultBox" style="margin-top: 25px; display: none;">
+                <h3 style="margin-bottom: 10px; color: #cbd5e1;">Matching Result:</h3>
+                <div id="matchedListContainer" style="background: rgba(15,23,42,0.6); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                <button type="button" id="claimBtn" class="submit-btn" style="background: linear-gradient(135deg, #10b981, #059669); display: none;" onclick="claimRewards()"><i class="fa-solid fa-hand-holding-dollar"></i> Claim Reward to Balance</button>
+            </div>
         </div>
 
         <!-- Payment Section -->
@@ -172,6 +189,13 @@ app.get('/', (req, res) => {
         </div>
 
         <script>
+            let userBalance = 1250;
+            let currentValidCount = 0;
+            let hasClaimed = false;
+
+            const adminReportsData = ${JSON.stringify(adminReports)};
+            const categoryPrices = ${JSON.stringify(categories.reduce((acc, c) => ({...acc, [c.name]: c.price}), {}))};
+
             function toggleSidebar() {
                 const sidebar = document.getElementById("mySidebar");
                 sidebar.style.left = sidebar.style.left === "0px" ? "-260px" : "0px";
@@ -188,15 +212,74 @@ app.get('/', (req, res) => {
                 alert("আইডি সফলভাবে সাবমিট হয়েছে!");
                 event.target.reset();
             }
-            function submitReport(event) {
-                event.preventDefault();
-                alert("রিপোর্ট সফলভাবে সাবমিট হয়েছে!");
-                event.target.reset();
-            }
             function submitPayment(event) {
                 event.preventDefault();
                 alert("পেমেন্ট রিকোয়েস্ট পাঠানো হয়েছে!");
                 event.target.reset();
+            }
+
+            function clearUserMatchResult() {
+                document.getElementById("matchResultBox").style.display = "none";
+                document.getElementById("matchedListContainer").innerHTML = "";
+                currentValidCount = 0;
+                hasClaimed = false;
+            }
+
+            function checkUserUids() {
+                const category = document.getElementById("userReportCategory").value;
+                const rawText = document.getElementById("userUidsInput").value;
+                
+                if(!category) {
+                    alert("দয়া করে ক্যাটাগরি সিলেক্ট করুন!");
+                    return;
+                }
+                if(!rawText.trim()) {
+                    alert("দয়া করে UID ইনপুট দিন!");
+                    return;
+                }
+
+                // Split input by comma or newline
+                const uids = rawText.split(/[\\n,]+/).map(u => u.trim()).filter(u => u.length > 0);
+                const validAdminUids = adminReportsData[category] || [];
+
+                currentValidCount = 0;
+                let containerHtml = "";
+
+                uids.forEach(uid => {
+                    const isMatch = validAdminUids.includes(uid);
+                    if(isMatch) currentValidCount++;
+
+                    const bgColor = isMatch ? "rgba(16, 185, 129, 0.2)" : "rgba(244, 63, 94, 0.2)";
+                    const borderColor = isMatch ? "#10b981" : "#f43f5e";
+                    const textColor = isMatch ? "#34d399" : "#f87171";
+
+                    containerHtml += \`<div style="background: \${bgColor}; border: 1px solid \${borderColor}; color: \${textColor}; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 13px;">\${uid}</div>\`;
+                });
+
+                document.getElementById("matchedListContainer").innerHTML = containerHtml;
+                document.getElementById("matchResultBox").style.display = "block";
+
+                const claimBtn = document.getElementById("claimBtn");
+                if(currentValidCount > 0 && !hasClaimed) {
+                    claimBtn.style.display = "block";
+                    const pricePerId = categoryPrices[category] || 0;
+                    claimBtn.innerHTML = \`<i class="fa-solid fa-hand-holding-dollar"></i> Claim Reward (\${currentValidCount} Valid IDs = ৳\${currentValidCount * pricePerId})\`;
+                } else {
+                    claimBtn.style.display = "none";
+                }
+            }
+
+            function claimRewards() {
+                const category = document.getElementById("userReportCategory").value;
+                const pricePerId = categoryPrices[category] || 0;
+                const totalEarned = currentValidCount * pricePerId;
+
+                userBalance += totalEarned;
+                hasClaimed = true;
+
+                document.getElementById("userBalance").innerText = "💰 ৳" + userBalance;
+                document.getElementById("claimBtn").style.display = "none";
+                alert("সফলভাবে ৳" + totalEarned + " ব্যালেন্সে যোগ করা হয়েছে!");
             }
         </script>
     </body>
@@ -222,11 +305,13 @@ app.get('/admin', (req, res) => {
             h2 { text-align: center; margin-bottom: 25px; color: #38bdf8; font-size: 28px; }
             .form-group { margin-bottom: 20px; }
             label { display: block; margin-bottom: 8px; font-weight: 600; color: #94a3b8; }
-            input, select { width: 100%; padding: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; outline: none; }
+            input, select, textarea { width: 100%; padding: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; outline: none; }
+            textarea { height: 100px; resize: vertical; }
             .submit-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
             
             .cat-tag-admin { display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.5); padding: 12px 15px; margin-bottom: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
             .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+            .success-btn { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
             
             .sheet-table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 6px; overflow: hidden; margin-top: 15px; }
             .sheet-table th { background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 12px; }
@@ -237,37 +322,51 @@ app.get('/admin', (req, res) => {
     <body>
         <div class="container">
             <a href="/" class="back-link"><i class="fa-solid fa-arrow-left"></i> Go to User Panel</a>
-            <h2>🛡️ Admin Management Panel 🛡️</h2>
+            <h2>🛡️ Admin Management & Report Panel 🛡️</h2>
 
-            <!-- Add Category Box -->
+            <!-- Add Category & Price Box -->
             <div class="form-group" style="background: rgba(15, 23, 42, 0.4); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                <label style="color: #38bdf8; font-size: 16px;"><i class="fa-solid fa-folder-plus"></i> Add New Category:</label>
+                <label style="color: #38bdf8; font-size: 16px;"><i class="fa-solid fa-folder-plus"></i> Add New Category & Price:</label>
                 <div style="display: flex; gap: 10px; margin-top: 10px;">
-                    <input type="text" id="newCategoryName" placeholder="নতুন ক্যাটাগরির নাম লিখুন...">
-                    <button type="button" class="submit-btn" style="width: 150px;" onclick="addCategory()">Add</button>
+                    <input type="text" id="newCategoryName" placeholder="ক্যাটাগরির নাম...">
+                    <input type="number" id="newCategoryPrice" placeholder="প্রাইজ (৳)..." style="width: 150px;">
+                    <button type="button" class="submit-btn" style="width: 120px;" onclick="addCategory()">Add</button>
                 </div>
             </div>
 
-            <!-- Manage Categories List -->
+            <!-- Existing Categories List -->
             <div class="form-group">
-                <label>Existing Categories:</label>
+                <label>Existing Categories & Prices:</label>
                 <div id="adminCategoryList">
                     ${categories.map((cat, idx) => `
                         <div class="cat-tag-admin">
-                            <span><b>${idx + 1}.</b> ${cat}</span>
+                            <span><b>${idx + 1}.</b> ${cat.name} — <b style="color: #10b981;">৳${cat.price}</b></span>
                             <button class="delete-btn" onclick="alert('ডিলিট করা হয়েছে!')">Delete</button>
                         </div>
                     `).join('')}
                 </div>
             </div>
 
-            <!-- Google Sheet Format Submitted IDs View -->
+            <!-- Admin Report UID Add Box -->
+            <div class="form-group" style="background: rgba(15, 23, 42, 0.4); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-top: 30px;">
+                <label style="color: #38bdf8; font-size: 16px;"><i class="fa-solid fa-file-shield"></i> Add Valid UIDs for Report Matching:</label>
+                <div style="display: flex; gap: 10px; margin-top: 10px; margin-bottom: 10px;">
+                    <select id="adminReportCat">
+                        <option value="">-- Select Category --</option>
+                        ${categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+                    </select>
+                </div>
+                <textarea id="adminReportUids" placeholder="UID গুলো এখানে পেস্ট করুন (কমা বা নতুন লাইনে)..."></textarea>
+                <button type="button" class="submit-btn" style="margin-top: 10px;" onclick="saveAdminReport()">Save UIDs</button>
+            </div>
+
+            <!-- Google Sheet Format Submitted IDs View with 'Received' button -->
             <div style="margin-top: 40px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3 style="color: #cbd5e1;"><i class="fa-solid fa-table"></i> Submitted IDs (Google Sheet View)</h3>
                     <select id="filterCategory" style="width: 200px; padding: 8px;">
                         <option value="All">All Categories</option>
-                        ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
+                        ${categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
                     </select>
                 </div>
                 
@@ -277,17 +376,21 @@ app.get('/admin', (req, res) => {
                             <th style="width: 60px;">SL</th>
                             <th style="width: 150px;">Category</th>
                             <th>Account Details</th>
-                            <th style="width: 100px;">Status</th>
+                            <th style="width: 120px;">Status Action</th>
                             <th style="width: 80px;">Action</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="adminTableBody">
                         ${submittedIds.map((item, idx) => `
                             <tr>
                                 <td>${idx + 1}</td>
                                 <td><b style="color: #38bdf8;">${item.category}</b></td>
                                 <td>${item.details}</td>
-                                <td><span style="color: #f59e0b; font-weight: bold;">${item.status}</span></td>
+                                <td>
+                                    <button class="${item.status === 'Success' ? 'success-btn' : 'submit-btn'}" style="padding: 6px 12px; font-size: 12px;" onclick="toggleStatus(${item.id}, this)">
+                                        ${item.status === 'Success' ? 'Success ✓' : 'Received'}
+                                    </button>
+                                </td>
                                 <td><button class="delete-btn">Delete</button></td>
                             </tr>
                         `).join('')}
@@ -298,11 +401,32 @@ app.get('/admin', (req, res) => {
 
         <script>
             function addCategory() {
-                const input = document.getElementById("newCategoryName");
-                if(input.value.trim()) {
-                    alert("ক্যাটাগরি যোগ হয়েছে! (সার্ভার রিস্টার্ট বা পেজ রিফ্রেশ করলে আপডেট দেখাবে)");
-                    input.value = "";
+                const name = document.getElementById("newCategoryName").value.trim();
+                const price = document.getElementById("newCategoryPrice").value.trim();
+                if(name && price) {
+                    alert("নতুন ক্যাটাগরি ও প্রাইজ সফলভাবে যোগ হয়েছে!");
+                    document.getElementById("newCategoryName").value = "";
+                    document.getElementById("newCategoryPrice").value = "";
+                } else {
+                    alert("দয়া করে নাম এবং প্রাইজ উভয়ই দিন!");
                 }
+            }
+
+            function saveAdminReport() {
+                const cat = document.getElementById("adminReportCat").value;
+                const uids = document.getElementById("adminReportUids").value.trim();
+                if(!cat || !uids) {
+                    alert("ক্যাটাগরি এবং UID উভয়ই প্রদান করুন!");
+                    return;
+                }
+                alert(cat + " ক্যাটাগরিতে UID সফলভাবে সেভ করা হয়েছে!");
+                document.getElementById("adminReportUids").value = "";
+            }
+
+            function toggleStatus(id, btn) {
+                btn.innerText = "Success ✓";
+                btn.className = "success-btn";
+                alert("স্ট্যাটাস পরিবর্তন করে Success করা হয়েছে!");
             }
         </script>
     </body>
