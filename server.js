@@ -336,6 +336,34 @@ app.post('/admin/update-status/:id', (req, res) => {
     res.redirect('/admin');
 });
 
+// Handle Admin Add Category & Price
+app.post('/admin/add-category', (req, res) => {
+    const { name, price } = req.body;
+    if (name && price) {
+        if (!categories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+            categories.push({ name, price: parseFloat(price) });
+        }
+    }
+    res.redirect('/admin');
+});
+
+// Handle Admin Delete Category
+app.get('/admin/delete-category/:name', (req, res) => {
+    const catName = req.params.name;
+    categories = categories.filter(c => c.name !== catName);
+    res.redirect('/admin');
+});
+
+// Handle Admin Save/Update Report UIDs
+app.post('/admin/save-report', (req, res) => {
+    const { category, uids } = req.body;
+    if (category) {
+        const uidArray = uids ? uids.split(/[\\n,]+/).map(u => u.trim()).filter(u => u.length > 0) : [];
+        adminReports[category] = uidArray;
+    }
+    res.redirect('/admin');
+});
+
 // ================= ADMIN PANEL ROUTE =================
 app.get('/admin', (req, res) => {
     const selectedCategory = req.query.category || "";
@@ -359,6 +387,8 @@ app.get('/admin', (req, res) => {
             .form-group { margin-bottom: 20px; }
             label { display: block; margin-bottom: 8px; font-weight: 600; color: #94a3b8; }
             input, select, textarea { width: 100%; padding: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; outline: none; }
+            textarea { resize: vertical; height: 100px; }
+            .submit-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; }
             .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; font-size: 12px; }
             .success-btn { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 12px; border-radius: 6px; cursor: default; font-weight: 600; }
             .received-btn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
@@ -372,6 +402,54 @@ app.get('/admin', (req, res) => {
         <div class="container">
             <a href="/" class="back-link"><i class="fa-solid fa-arrow-left"></i> Go to User Panel</a>
             <h2>🛡️ Admin Management & Report Panel 🛡️</h2>
+
+            <!-- Add Category & Price Form -->
+            <div style="background: rgba(15, 23, 42, 0.4); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 25px;">
+                <h3 style="color: #38bdf8; margin-bottom: 15px; font-size: 18px;"><i class="fa-solid fa-folder-plus"></i> Add New Category & Price</h3>
+                <form action="/admin/add-category" method="POST">
+                    <div style="display: flex; gap: 15px;">
+                        <div class="form-group" style="flex: 2; margin-bottom: 0;">
+                            <label>Category Name:</label>
+                            <input type="text" name="name" placeholder="যেমন: Free Fire, Gmail..." required>
+                        </div>
+                        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                            <label>Price (BDT):</label>
+                            <input type="number" name="price" placeholder="৳ মূল্য..." required>
+                        </div>
+                        <div style="display: flex; align-items: flex-end; flex: 1;">
+                            <button type="submit" class="submit-btn" style="background: linear-gradient(135deg, #10b981, #059669);"><i class="fa-solid fa-plus"></i> Add Category</button>
+                        </div>
+                    </div>
+                </form>
+
+                <div style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;">
+                    ${categories.map(c => `
+                        <div style="background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 6px; display: flex; align-items: center; gap: 10px; font-size: 13px;">
+                            <span><b>${c.name}</b> (৳${c.price})</span>
+                            <a href="/admin/delete-category/${encodeURIComponent(c.name)}" style="color: #f43f5e; text-decoration: none;"><i class="fa-solid fa-xmark"></i></a>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Admin Report Management -->
+            <div style="background: rgba(15, 23, 42, 0.4); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 25px;">
+                <h3 style="color: #38bdf8; margin-bottom: 15px; font-size: 18px;"><i class="fa-solid fa-file-lines"></i> Set Valid UIDs for Reports</h3>
+                <form action="/admin/save-report" method="POST">
+                    <div class="form-group">
+                        <label>Select Category:</label>
+                        <select name="category" id="reportCatSelect" required onchange="loadCategoryUids(this.value)">
+                            <option value="">-- Select Category --</option>
+                            ${categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Valid UIDs (Each in a new line or comma separated):</label>
+                        <textarea name="uids" id="reportUidsTextarea" placeholder="UID101, UID102..."></textarea>
+                    </div>
+                    <button type="submit" class="submit-btn"><i class="fa-solid fa-floppy-disk"></i> Save Report Uids</button>
+                </form>
+            </div>
 
             <!-- Filter By Category -->
             <div class="form-group" style="background: rgba(15, 23, 42, 0.4); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
@@ -416,6 +494,15 @@ app.get('/admin', (req, res) => {
         </div>
 
         <script>
+            const allReports = ${JSON.stringify(adminReports)};
+            function loadCategoryUids(cat) {
+                const textarea = document.getElementById("reportUidsTextarea");
+                if(cat && allReports[cat]) {
+                    textarea.value = allReports[cat].join(", ");
+                } else {
+                    textarea.value = "";
+                }
+            }
             function filterByCategory(cat) {
                 if(cat) {
                     window.location.href = "/admin?category=" + encodeURIComponent(cat);
