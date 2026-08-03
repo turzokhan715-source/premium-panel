@@ -31,13 +31,15 @@ app.get('/', (req, res) => {
             .close-btn { background: none; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; }
             .close-btn:hover { color: white; }
             .sidebar-links { list-style: none; padding: 20px 0; flex-grow: 1; }
-            .sidebar-links li a { padding: 14px 20px; text-decoration: none; font-size: 16px; color: #cbd5e1; display: flex; align-items: center; gap: 12px; transition: 0.2s; }
-            .sidebar-links li a:hover { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
+            .sidebar-links li a { padding: 14px 20px; text-decoration: none; font-size: 16px; color: #cbd5e1; display: flex; align-items: center; gap: 12px; transition: 0.2s; cursor: pointer; }
+            .sidebar-links li a:hover, .sidebar-links li a.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
             .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
-            .sidebar-footer a { color: #f43f5e; text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 10px; }
+            .sidebar-footer a { color: #f43f5e; text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer; }
 
             /* Main Container */
-            .container { max-width: 750px; margin: 100px auto 40px auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+            .container { max-width: 750px; margin: 100px auto 40px auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; }
+            .container.active-section { display: block; }
+            
             h2 { text-align: center; margin-bottom: 25px; color: #f8fafc; font-size: 26px; font-weight: 700; letter-spacing: 0.5px; }
             
             .form-group { margin-bottom: 20px; }
@@ -84,20 +86,21 @@ app.get('/', (req, res) => {
                     <button class="close-btn" onclick="toggleSidebar()"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <ul class="sidebar-links">
-                    <li><a href="#"><i class="fa-solid fa-chart-line"></i> Report</a></li>
-                    <li><a href="#"><i class="fa-solid fa-wallet"></i> Payment</a></li>
+                    <li><a onclick="switchSection('homeSection', this)" class="active"><i class="fa-solid fa-house"></i> Home</a></li>
+                    <li><a onclick="switchSection('reportSection', this)"><i class="fa-solid fa-chart-line"></i> Report</a></li>
+                    <li><a onclick="alert('Payment পেজটি শীঘ্রই আসছে!')"><i class="fa-solid fa-wallet"></i> Payment</a></li>
                 </ul>
             </div>
             <div class="sidebar-footer">
-                <a href="#"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                <a onclick="alert('লগআউট সফল হয়েছে!')"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
             </div>
         </div>
 
-        <!-- Main Content -->
-        <div class="container">
+        <!-- Home Section (With History) -->
+        <div id="homeSection" class="container active-section">
             <h2>✨ Sell Your ID Securely ✨</h2>
             
-            <form onsubmit="submitID(event)">
+            <form onsubmit="submitID(event, 'historyTable')">
                 <div class="form-group">
                     <label>Select Category:</label>
                     <select id="category" required>
@@ -117,7 +120,6 @@ app.get('/', (req, res) => {
                 <button type="submit" class="submit-btn"><i class="fa-solid fa-paper-plane"></i> Submit ID Now</button>
             </form>
 
-            <!-- History Box -->
             <div class="history-section">
                 <h3>My Submissions History</h3>
                 <table>
@@ -141,25 +143,66 @@ app.get('/', (req, res) => {
             </div>
         </div>
 
+        <!-- Report Section (Without History) -->
+        <div id="reportSection" class="container">
+            <h2>📊 ID Submission Report Form 📊</h2>
+            
+            <form onsubmit="submitReport(event)">
+                <div class="form-group">
+                    <label>Select Category:</label>
+                    <select id="reportCategory" required>
+                        <option value="">-- Select Category --</option>
+                        <option value="Free Fire">Free Fire</option>
+                        <option value="Facebook">Facebook</option>
+                        <option value="Gmail">Gmail</option>
+                        <option value="Page">Page</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Account Details (Username / Link & Password):</label>
+                    <textarea id="reportDetails" placeholder="এখানে আপনার আইডির ইউজারনেম, পাসওয়ার্ড বা বিস্তারিত তথ্য লিখুন..." required></textarea>
+                </div>
+
+                <button type="submit" class="submit-btn"><i class="fa-solid fa-paper-plane"></i> Submit Report</button>
+            </form>
+        </div>
+
         <script>
             function toggleSidebar() {
                 const sidebar = document.getElementById("mySidebar");
                 sidebar.style.left = sidebar.style.left === "0px" ? "-260px" : "0px";
             }
 
-            function submitID(event) {
+            function switchSection(sectionId, element) {
+                document.querySelectorAll('.container').forEach(el => el.classList.remove('active-section'));
+                document.getElementById(sectionId).classList.add('active-section');
+                
+                document.querySelectorAll('.sidebar-links a').forEach(el => el.classList.remove('active'));
+                element.classList.add('active');
+
+                toggleSidebar();
+            }
+
+            function submitID(event, tableId) {
                 event.preventDefault();
                 
                 const category = document.getElementById("category").value;
                 const details = document.getElementById("details").value;
-                const table = document.getElementById("historyTable");
+                const table = document.getElementById(tableId);
 
                 const newRow = document.createElement("tr");
                 newRow.innerHTML = '<td>' + category + '</td><td>' + details + '</td><td><span class="badge-pending">Pending</span></td><td><button class="delete-btn" onclick="this.parentElement.parentElement.remove()">Delete</button></td>';
 
                 table.prepend(newRow);
-                document.querySelector("form").reset();
+                event.target.reset();
                 alert("আইডি সফলভাবে সাবমিট হয়েছে!");
+            }
+
+            function submitReport(event) {
+                event.preventDefault();
+                event.target.reset();
+                alert("রিপোর্ট সফলভাবে সাবমিট হয়েছে!");
             }
         </script>
     </body>
