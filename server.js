@@ -90,8 +90,8 @@ app.get('/', (req, res) => {
             .sidebar-links { list-style: none; padding: 20px 0; flex-grow: 1; }
             .sidebar-links li a { padding: 14px 20px; text-decoration: none; font-size: 16px; color: #cbd5e1; display: flex; align-items: center; gap: 12px; transition: 0.2s; cursor: pointer; }
             .sidebar-links li a:hover, .sidebar-links li a.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
-            .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
-            .sidebar-footer a { color: #f43f5e; text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+            .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 13px; color: #94a3b8; }
+            .sidebar-footer a { color: #38bdf8; text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 8px; margin-top: 6px; }
             .container { max-width: 900px; margin: 100px auto 40px auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; }
             .container.active-section { display: block; }
             h2 { text-align: center; margin-bottom: 25px; color: #f8fafc; font-size: 26px; font-weight: 700; }
@@ -109,7 +109,6 @@ app.get('/', (req, res) => {
             .badge-pending { background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
             .badge-success { background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
             .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; text-decoration: none; display: inline-block; }
-            .admin-link-btn { display: block; text-align: center; margin-top: 25px; color: #38bdf8; text-decoration: none; font-size: 14px; font-weight: bold; }
         </style>
     </head>
     <body>
@@ -134,8 +133,8 @@ app.get('/', (req, res) => {
                 </ul>
             </div>
             <div class="sidebar-footer">
-                <a href="/admin"><i class="fa-solid fa-shield-halved"></i> Admin Panel</a>
-                <a onclick="alert('লগআউট সফল হয়েছে!')"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                <div>Support Admin:</div>
+                <a href="https://web.telegram.org/a/#8629952050" target="_blank"><i class="fa-brands fa-telegram"></i> @Gmail_generator1</a>
             </div>
         </div>
 
@@ -175,7 +174,6 @@ app.get('/', (req, res) => {
                     </tbody>
                 </table>
             </div>
-            <a href="/admin" class="admin-link-btn">👉 Go to Admin Management Panel</a>
         </div>
 
         <!-- Report Section -->
