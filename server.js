@@ -18,7 +18,6 @@ let submittedIds = [
     { id: 2, category: "Facebook", details: "5k Followers, Link: fb.com/...", status: "Pending" }
 ];
 
-// Admin saved UIDs for reporting & matching (Category-wise)
 let adminReports = {
     "Free Fire": ["UID101", "UID102", "UID103"],
     "Facebook": ["FB999", "FB888"]
@@ -104,17 +103,17 @@ app.get('/', (req, res) => {
         <!-- Home Section -->
         <div id="homeSection" class="container active-section">
             <h2>✨ Sell Your ID Securely ✨</h2>
-            <form onsubmit="submitID(event)">
+            <form action="/submit-id" method="POST">
                 <div class="form-group">
                     <label>Select Category:</label>
-                    <select id="category" required>
+                    <select name="category" required>
                         <option value="">-- Select Category --</option>
                         ${categories.map(c => `<option value="${c.name}">${c.name} (Price: ৳${c.price})</option>`).join('')}
                     </select>
                 </div>
                 <div class="form-group">
                     <label>Account Details (Username / Link & Password):</label>
-                    <textarea id="details" placeholder="এখানে আপনার আইডির ইউজারনেম, পাসওয়ার্ড বা বিস্তারিত তথ্য লিখুন..." required></textarea>
+                    <textarea name="details" placeholder="এখানে আপনার আইডির ইউজারনেম, পাসওয়ার্ড বা বিস্তারিত তথ্য লিখুন..." required></textarea>
                 </div>
                 <button type="submit" class="submit-btn"><i class="fa-solid fa-paper-plane"></i> Submit ID Now</button>
             </form>
@@ -207,11 +206,6 @@ app.get('/', (req, res) => {
                 element.classList.add('active');
                 toggleSidebar();
             }
-            function submitID(event) {
-                event.preventDefault();
-                alert("আইডি সফলভাবে সাবমিট হয়েছে!");
-                event.target.reset();
-            }
             function submitPayment(event) {
                 event.preventDefault();
                 alert("পেমেন্ট রিকোয়েস্ট পাঠানো হয়েছে!");
@@ -238,7 +232,6 @@ app.get('/', (req, res) => {
                     return;
                 }
 
-                // Split input by comma or newline
                 const uids = rawText.split(/[\\n,]+/).map(u => u.trim()).filter(u => u.length > 0);
                 const validAdminUids = adminReportsData[category] || [];
 
@@ -287,6 +280,29 @@ app.get('/', (req, res) => {
     `);
 });
 
+// Handle User ID Submission
+app.post('/submit-id', (req, res) => {
+    const { category, details } = req.body;
+    if (category && details) {
+        submittedIds.push({
+            id: submittedIds.length + 1,
+            category: category,
+            details: details,
+            status: "Pending"
+        });
+    }
+    res.redirect('/');
+});
+
+// Handle Admin Status Update to Success
+app.post('/admin/update-status/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    const item = submittedIds.find(s => s.id === id);
+    if(item) {
+        item.status = "Success";
+    }
+    res.redirect('/admin');
+});
 
 // ================= ADMIN PANEL ROUTE =================
 app.get('/admin', (req, res) => {
@@ -311,7 +327,8 @@ app.get('/admin', (req, res) => {
             
             .cat-tag-admin { display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.5); padding: 12px 15px; margin-bottom: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
             .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-            .success-btn { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+            .success-btn { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: default; }
+            .received-btn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
             
             .sheet-table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 6px; overflow: hidden; margin-top: 15px; }
             .sheet-table th { background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 12px; }
@@ -360,14 +377,10 @@ app.get('/admin', (req, res) => {
                 <button type="button" class="submit-btn" style="margin-top: 10px;" onclick="saveAdminReport()">Save UIDs</button>
             </div>
 
-            <!-- Google Sheet Format Submitted IDs View with 'Received' button -->
+            <!-- Google Sheet Format Submitted IDs View -->
             <div style="margin-top: 40px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3 style="color: #cbd5e1;"><i class="fa-solid fa-table"></i> Submitted IDs (Google Sheet View)</h3>
-                    <select id="filterCategory" style="width: 200px; padding: 8px;">
-                        <option value="All">All Categories</option>
-                        ${categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
-                    </select>
                 </div>
                 
                 <table class="sheet-table">
@@ -387,9 +400,10 @@ app.get('/admin', (req, res) => {
                                 <td><b style="color: #38bdf8;">${item.category}</b></td>
                                 <td>${item.details}</td>
                                 <td>
-                                    <button class="${item.status === 'Success' ? 'success-btn' : 'submit-btn'}" style="padding: 6px 12px; font-size: 12px;" onclick="toggleStatus(${item.id}, this)">
-                                        ${item.status === 'Success' ? 'Success ✓' : 'Received'}
-                                    </button>
+                                    ${item.status === 'Success' 
+                                        ? `<button class="success-btn" style="padding: 6px 12px; font-size: 12px;">Success ✓</button>`
+                                        : `<form action="/admin/update-status/${item.id}" method="POST"><button type="submit" class="received-btn" style="padding: 6px 12px; font-size: 12px;">Received</button></form>`
+                                    }
                                 </td>
                                 <td><button class="delete-btn">Delete</button></td>
                             </tr>
@@ -421,12 +435,6 @@ app.get('/admin', (req, res) => {
                 }
                 alert(cat + " ক্যাটাগরিতে UID সফলভাবে সেভ করা হয়েছে!");
                 document.getElementById("adminReportUids").value = "";
-            }
-
-            function toggleStatus(id, btn) {
-                btn.innerText = "Success ✓";
-                btn.className = "success-btn";
-                alert("স্ট্যাটাস পরিবর্তন করে Success করা হয়েছে!");
             }
         </script>
     </body>
