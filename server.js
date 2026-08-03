@@ -155,12 +155,7 @@ app.get('/', (req, res) => {
                 const table = document.getElementById("historyTable");
 
                 const newRow = document.createElement("tr");
-                newRow.innerHTML = \`
-                    <td>\${category}</td>
-                    <td>\${details}</td>
-                    <td><span class="badge-pending">Pending</span></td>
-                    <td><button class="delete-btn" onclick="this.parentElement.parentElement.remove()">Delete</button></td>
-                \`;
+                newRow.innerHTML = '<td>' + category + '</td><td>' + details + '</td><td><span class="badge-pending">Pending</span></td><td><button class="delete-btn" onclick="this.parentElement.parentElement.remove()">Delete</button></td>';
 
                 table.prepend(newRow);
                 document.querySelector("form").reset();
@@ -173,5 +168,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(\`Server is running on port \${PORT}\`);
+    console.log("Server is running on port " + PORT);
 });
