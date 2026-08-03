@@ -27,25 +27,25 @@ let adminReports = {
     "Facebook": ["FB999", "FB888"]
 };
 
-// Helper function to render file-style text box with Download Button
+// Helper function: Fixed design so text wraps inside box and doesn't overflow
 function formatAsFileBox(detailsText, itemId) {
     const lines = detailsText.split('\n').filter(line => line.trim() !== '');
-    let fileHtml = `<div style="display: flex; flex-direction: column; gap: 6px;">`;
+    let fileHtml = `<div style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 450px;">`;
     
-    // File Box View
-    fileHtml += `<div style="background: #0f172a; border: 1px solid #334155; border-radius: 6px; text-align: left; max-height: 160px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 12px; display: flex;">`;
+    // File Box View with text wrapping enabled
+    fileHtml += `<div style="background: #0f172a; border: 1px solid #334155; border-radius: 6px; text-align: left; max-height: 150px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 11px; display: flex;">`;
     
     // Line numbers column
-    fileHtml += `<div style="background: #1e293b; color: #64748b; padding: 8px 10px; user-select: none; border-right: 1px solid #334155; text-align: right;">`;
+    fileHtml += `<div style="background: #1e293b; color: #64748b; padding: 8px 8px; user-select: none; border-right: 1px solid #334155; text-align: right;">`;
     lines.forEach((_, idx) => { fileHtml += `<div>${idx + 1}</div>`; });
     fileHtml += `</div>`;
 
-    // Content lines column
-    fileHtml += `<div style="padding: 8px 12px; color: #e2e8f0; white-space: pre; word-break: normal; flex-grow: 1; overflow-x: auto;">`;
+    // Content lines column with word break to prevent overflow
+    fileHtml += `<div style="padding: 8px 10px; color: #e2e8f0; white-space: pre-wrap; word-break: break-all; flex-grow: 1;">`;
     lines.forEach(line => { fileHtml += `<div>${line}</div>`; });
     fileHtml += `</div></div>`;
 
-    // Download Button below file box
+    // Download Button
     fileHtml += `<a href="/admin/download/${itemId}" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.4); padding: 5px 10px; border-radius: 5px; font-size: 12px; text-decoration: none; font-weight: bold; width: fit-content;"><i class="fa-solid fa-download"></i> Download File (.txt)</a>`;
     
     fileHtml += `</div>`;
@@ -80,7 +80,7 @@ app.get('/', (req, res) => {
             .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
             .sidebar-footer a { color: #f43f5e; text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer; }
 
-            .container { max-width: 850px; margin: 100px auto 40px auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; }
+            .container { max-width: 900px; margin: 100px auto 40px auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; }
             .container.active-section { display: block; }
             
             h2 { text-align: center; margin-bottom: 25px; color: #f8fafc; font-size: 26px; font-weight: 700; }
@@ -151,7 +151,7 @@ app.get('/', (req, res) => {
                 <h3>My Submissions History</h3>
                 <table>
                     <thead>
-                        <tr><th style="width: 130px;">Category</th><th>Details (File View)</th><th style="width: 100px;">Status</th><th style="width: 80px;">Action</th></tr>
+                        <tr><th style="width: 120px;">Category</th><th>Details (File View)</th><th style="width: 100px;">Status</th><th style="width: 80px;">Action</th></tr>
                     </thead>
                     <tbody id="historyTable">
                         ${submittedIds.map(item => `
@@ -384,7 +384,6 @@ app.get('/admin', (req, res) => {
             textarea { height: 100px; resize: vertical; }
             .submit-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
             
-            .cat-tag-admin { display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.5); padding: 12px 15px; margin-bottom: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
             .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; font-size: 12px; }
             .success-btn { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 12px; border-radius: 6px; cursor: default; font-weight: 600; }
             .received-btn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
