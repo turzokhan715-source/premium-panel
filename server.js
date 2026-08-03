@@ -420,6 +420,13 @@ app.get('/delete/:id', (req, res) => {
     }
 });
 
+// Handle Delete Payment Request
+app.get('/admin/delete-payment/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    paymentRequests = paymentRequests.filter(p => p.id !== id);
+    res.redirect('/admin');
+});
+
 // Handle Download ID File (.txt)
 app.get('/admin/download/:id', (req, res) => {
     const id = parseInt(req.params.id);
@@ -500,152 +507,195 @@ app.get('/admin', (req, res) => {
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-            body { background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; min-height: 100vh; padding: 40px 20px; }
-            .container { max-width: 950px; margin: 0 auto; background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
-            h2 { text-align: center; margin-bottom: 25px; color: #38bdf8; font-size: 28px; }
+            body { background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; min-height: 100vh; }
+            .top-bar { background: rgba(30, 41, 59, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.1); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+            .menu-btn { background: none; border: none; color: #38bdf8; font-size: 22px; cursor: pointer; }
+            .sidebar { height: 100%; width: 260px; position: fixed; z-index: 101; top: 0; left: -260px; background-color: #0f172a; color: white; transition: 0.3s ease-in-out; padding-top: 20px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid rgba(255,255,255,0.05); }
+            .sidebar-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+            .close-btn { background: none; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; }
+            .sidebar-links { list-style: none; padding: 20px 0; flex-grow: 1; }
+            .sidebar-links li a { padding: 14px 20px; text-decoration: none; font-size: 16px; color: #cbd5e1; display: flex; align-items: center; gap: 12px; transition: 0.2s; cursor: pointer; }
+            .sidebar-links li a:hover, .sidebar-links li a.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
+            .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 13px; color: #94a3b8; }
+            .sidebar-footer a { color: #38bdf8; text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+            
+            .container { max-width: 950px; margin: 100px auto 40px auto; background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; }
+            .container.active-section { display: block; }
+            h2 { text-align: center; margin-bottom: 25px; color: #38bdf8; font-size: 26px; font-weight: 700; }
             .form-group { margin-bottom: 20px; }
-            label { display: block; margin-bottom: 8px; font-weight: 600; color: #94a3b8; }
-            input, select, textarea { width: 100%; padding: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; outline: none; }
-            textarea { resize: vertical; height: 100px; }
-            .submit-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; }
+            label { display: block; margin-bottom: 8px; font-weight: 600; color: #94a3b8; font-size: 14px; }
+            input, select, textarea { width: 100%; padding: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; outline: none; font-size: 15px; }
+            textarea { resize: vertical; height: 120px; }
+            .submit-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
             .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; font-size: 12px; }
             .success-btn { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 12px; border-radius: 6px; cursor: default; font-weight: 600; font-size: 12px; }
             .received-btn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; }
             .sheet-table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 6px; overflow: hidden; margin-top: 15px; }
-            .sheet-table th { background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 12px; }
-            .sheet-table td { border: 1px solid #334155; padding: 12px; color: #e2e8f0; vertical-align: middle; }
-            .back-link { display: inline-block; margin-bottom: 20px; color: #38bdf8; text-decoration: none; font-weight: bold; }
+            .sheet-table th { background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 12px; font-size: 14px; }
+            .sheet-table td { border: 1px solid #334155; padding: 12px; color: #e2e8f0; vertical-align: middle; font-size: 14px; text-align: center; }
+            .back-btn-top { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 6px 14px; border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 6px; }
         </style>
     </head>
     <body>
-        <div class="container">
-            <a href="/" class="back-link"><i class="fa-solid fa-arrow-left"></i> Go to User Panel</a>
-            <h2>🛡️ Admin Management & Payment Panel 🛡️</h2>
+        <div class="top-bar">
+            <button class="menu-btn" onclick="toggleSidebar()"><i class="fa-solid fa-bars-staggered"></i></button>
+            <a href="/" class="back-btn-top"><i class="fa-solid fa-arrow-left"></i> User Panel</a>
+        </div>
 
-            <!-- Payment Requests Management Section -->
-            <div style="background: rgba(15, 23, 42, 0.4); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 25px;">
-                <h3 style="color: #38bdf8; margin-bottom: 15px; font-size: 18px;"><i class="fa-solid fa-wallet"></i> User Payment Requests</h3>
-                <table class="sheet-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 50px;">SL</th>
-                            <th>Method</th>
-                            <th>Account Number</th>
-                            <th>Amount</th>
-                            <th style="width: 110px;">Action Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${paymentRequests.length > 0 ? paymentRequests.map((pay, idx) => `
-                            <tr>
-                                <td>${idx + 1}</td>
-                                <td><b>${pay.method}</b></td>
-                                <td>${pay.number}</td>
-                                <td style="color: #10b981; font-weight: bold;">৳${pay.amount}</td>
-                                <td>
-                                    ${pay.status === 'Success' 
-                                        ? `<button class="success-btn">Success ✓</button>`
-                                        : `<form action="/admin/update-payment/${pay.id}" method="POST"><button type="submit" class="received-btn">Send Money</button></form>`
-                                    }
-                                </td>
-                            </tr>
-                        `).join('') : `<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 15px;">কোনো পেমেন্ট রিকোয়েস্ট নেই!</td></tr>`}
-                    </tbody>
-                </table>
+        <div id="mySidebar" class="sidebar">
+            <div>
+                <div class="sidebar-header">
+                    <h3><b>অ্যাডমিন মেনু</b></h3>
+                    <button class="close-btn" onclick="toggleSidebar()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <ul class="sidebar-links">
+                    <li><a onclick="switchSection('paymentSection', this)" class="active"><i class="fa-solid fa-wallet"></i> Payment Requests</a></li>
+                    <li><a onclick="switchSection('categorySection', this)"><i class="fa-solid fa-folder-plus"></i> Category & Price</a></li>
+                    <li><a onclick="switchSection('reportSetSection', this)"><i class="fa-solid fa-file-lines"></i> Valid UIDs Setup</a></li>
+                    <li><a onclick="switchSection('idsSection', this)"><i class="fa-solid fa-table"></i> Submitted IDs</a></li>
+                </ul>
             </div>
+            <div class="sidebar-footer">
+                <div>Admin Panel</div>
+                <a href="/"><i class="fa-solid fa-user"></i> Go to User Panel</a>
+            </div>
+        </div>
 
-            <!-- Add Category & Price Form -->
-            <div style="background: rgba(15, 23, 42, 0.4); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 25px;">
-                <h3 style="color: #38bdf8; margin-bottom: 15px; font-size: 18px;"><i class="fa-solid fa-folder-plus"></i> Add New Category & Price</h3>
-                <form action="/admin/add-category" method="POST">
-                    <div style="display: flex; gap: 15px;">
-                        <div class="form-group" style="flex: 2; margin-bottom: 0;">
-                            <label>Category Name:</label>
-                            <input type="text" name="name" placeholder="যেমন: Free Fire, Gmail..." required>
-                        </div>
-                        <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                            <label>Price (BDT):</label>
-                            <input type="number" name="price" placeholder="৳ মূল্য..." required>
-                        </div>
-                        <div style="display: flex; align-items: flex-end; flex: 1;">
-                            <button type="submit" class="submit-btn" style="background: linear-gradient(135deg, #10b981, #059669);"><i class="fa-solid fa-plus"></i> Add Category</button>
-                        </div>
-                    </div>
-                </form>
+        <!-- 1. Payment Requests Section -->
+        <div id="paymentSection" class="container active-section">
+            <h2>💳 User Payment Requests 💳</h2>
+            <table class="sheet-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">SL</th>
+                        <th>Method</th>
+                        <th>Account Number</th>
+                        <th>Amount</th>
+                        <th style="width: 120px;">Action Status</th>
+                        <th style="width: 80px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${paymentRequests.length > 0 ? paymentRequests.map((pay, idx) => `
+                        <tr>
+                            <td>${idx + 1}</td>
+                            <td><b>${pay.method}</b></td>
+                            <td>${pay.number}</td>
+                            <td style="color: #10b981; font-weight: bold;">৳${pay.amount}</td>
+                            <td>
+                                ${pay.status === 'Success' 
+                                    ? `<button class="success-btn">Success ✓</button>`
+                                    : `<form action="/admin/update-payment/${pay.id}" method="POST"><button type="submit" class="received-btn">Send Money</button></form>`
+                                }
+                            </td>
+                            <td><a href="/admin/delete-payment/${pay.id}" class="delete-btn">Delete</a></td>
+                        </tr>
+                    `).join('') : `<tr><td colspan="6" style="text-align: center; color: #94a3b8; padding: 20px;">কোনো পেমেন্ট রিকোয়েস্ট নেই!</td></tr>`}
+                </tbody>
+            </table>
+        </div>
 
-                <div style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;">
+        <!-- 2. Category & Price Section -->
+        <div id="categorySection" class="container">
+            <h2>📁 Manage Category & Price 📁</h2>
+            <form action="/admin/add-category" method="POST">
+                <div class="form-group">
+                    <label>Category Name:</label>
+                    <input type="text" name="name" placeholder="যেমন: Free Fire, Gmail..." required>
+                </div>
+                <div class="form-group">
+                    <label>Price (BDT):</label>
+                    <input type="number" name="price" placeholder="৳ মূল্য..." required>
+                </div>
+                <button type="submit" class="submit-btn" style="background: linear-gradient(135deg, #10b981, #059669);"><i class="fa-solid fa-plus"></i> Add Category</button>
+            </form>
+
+            <div style="margin-top: 25px;">
+                <h3 style="color: #cbd5e1; margin-bottom: 12px; font-size: 16px;">Existing Categories:</h3>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
                     ${categories.map(c => `
-                        <div style="background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 6px; display: flex; align-items: center; gap: 10px; font-size: 13px;">
+                        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); padding: 8px 14px; border-radius: 6px; display: flex; align-items: center; gap: 12px; font-size: 14px;">
                             <span><b>${c.name}</b> (৳${c.price})</span>
                             <a href="/admin/delete-category/${encodeURIComponent(c.name)}" style="color: #f43f5e; text-decoration: none;"><i class="fa-solid fa-xmark"></i></a>
                         </div>
                     `).join('')}
                 </div>
             </div>
+        </div>
 
-            <!-- Admin Report Management -->
-            <div style="background: rgba(15, 23, 42, 0.4); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 25px;">
-                <h3 style="color: #38bdf8; margin-bottom: 15px; font-size: 18px;"><i class="fa-solid fa-file-lines"></i> Set Valid UIDs for Reports</h3>
-                <form action="/admin/save-report" method="POST">
-                    <div class="form-group">
-                        <label>Select Category:</label>
-                        <select name="category" id="reportCatSelect" required onchange="loadCategoryUids(this.value)">
-                            <option value="">-- Select Category --</option>
-                            ${categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Valid UIDs (Each in a new line or comma separated):</label>
-                        <textarea name="uids" id="reportUidsTextarea" placeholder="UID101, UID102..."></textarea>
-                    </div>
-                    <button type="submit" class="submit-btn"><i class="fa-solid fa-floppy-disk"></i> Save Report Uids</button>
-                </form>
-            </div>
+        <!-- 3. Valid UIDs Setup Section -->
+        <div id="reportSetSection" class="container">
+            <h2>📊 Set Valid UIDs for Reports 📊</h2>
+            <form action="/admin/save-report" method="POST">
+                <div class="form-group">
+                    <label>Select Category:</label>
+                    <select name="category" id="reportCatSelect" required onchange="loadCategoryUids(this.value)">
+                        <option value="">-- Select Category --</option>
+                        ${categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Valid UIDs (Each in a new line or comma separated):</label>
+                    <textarea name="uids" id="reportUidsTextarea" placeholder="UID101, UID102..."></textarea>
+                </div>
+                <button type="submit" class="submit-btn"><i class="fa-solid fa-floppy-disk"></i> Save Report Uids</button>
+            </form>
+        </div>
 
-            <!-- Filter By Category -->
-            <div class="form-group" style="background: rgba(15, 23, 42, 0.4); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                <label style="color: #38bdf8; font-size: 16px;"><i class="fa-solid fa-filter"></i> Filter Submitted IDs by Category:</label>
-                <select id="filterCategory" onchange="filterByCategory(this.value)" style="margin-top: 10px;">
+        <!-- 4. Submitted IDs Section -->
+        <div id="idsSection" class="container">
+            <h2>📋 Submitted IDs (Google Sheet View) 📋</h2>
+            <div class="form-group">
+                <label>Filter Submitted IDs by Category:</label>
+                <select id="filterCategory" onchange="filterByCategory(this.value)">
                     <option value="">-- All Categories --</option>
                     ${categories.map(c => `<option value="${c.name}" ${selectedCategory === c.name ? 'selected' : ''}>${c.name}</option>`).join('')}
                 </select>
             </div>
 
-            <!-- Submitted IDs View -->
-            <div style="margin-top: 30px;">
-                <h3 style="color: #cbd5e1; margin-bottom: 15px;"><i class="fa-solid fa-table"></i> Submitted IDs (Google Sheet View)</h3>
-                <table class="sheet-table">
-                    <thead>
+            <table class="sheet-table" style="margin-top: 20px;">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">SL</th>
+                        <th style="width: 120px;">Category</th>
+                        <th>Account Details (File View & Download)</th>
+                        <th style="width: 110px;">Status Action</th>
+                        <th style="width: 80px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${filteredIds.length > 0 ? filteredIds.map((item, idx) => `
                         <tr>
-                            <th style="width: 60px;">SL</th>
-                            <th style="width: 130px;">Category</th>
-                            <th>Account Details (File View & Download)</th>
-                            <th style="width: 110px;">Status Action</th>
-                            <th style="width: 80px;">Action</th>
+                            <td>${idx + 1}</td>
+                            <td><b style="color: #38bdf8;">${item.category}</b></td>
+                            <td style="text-align: left; padding: 10px;">${formatAsFileBox(item.details, item.id)}</td>
+                            <td>
+                                ${item.status === 'Success' 
+                                    ? `<button class="success-btn">Success ✓</button>`
+                                    : `<form action="/admin/update-status/${item.id}" method="POST"><button type="submit" class="received-btn">Received</button></form>`
+                                }
+                            </td>
+                            <td><a href="/delete/${item.id}" class="delete-btn">Delete</a></td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        ${filteredIds.length > 0 ? filteredIds.map((item, idx) => `
-                            <tr>
-                                <td>${idx + 1}</td>
-                                <td><b style="color: #38bdf8;">${item.category}</b></td>
-                                <td style="text-align: left; padding: 10px;">${formatAsFileBox(item.details, item.id)}</td>
-                                <td>
-                                    ${item.status === 'Success' 
-                                        ? `<button class="success-btn">Success ✓</button>`
-                                        : `<form action="/admin/update-status/${item.id}" method="POST"><button type="submit" class="received-btn">Received</button></form>`
-                                    }
-                                </td>
-                                <td><a href="/delete/${item.id}" class="delete-btn">Delete</a></td>
-                            </tr>
-                        `).join('') : `<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">কোনো আইডি পাওয়া যায়নি!</td></tr>`}
-                    </tbody>
-                </table>
-            </div>
+                    `).join('') : `<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">কোনো আইডি পাওয়া যায়নি!</td></tr>`}
+                </tbody>
+            </table>
         </div>
 
         <script>
             const allReports = ${JSON.stringify(adminReports)};
+            
+            function toggleSidebar() {
+                const sidebar = document.getElementById("mySidebar");
+                sidebar.style.left = sidebar.style.left === "0px" ? "-260px" : "0px";
+            }
+            function switchSection(sectionId, element) {
+                document.querySelectorAll('.container').forEach(el => el.classList.remove('active-section'));
+                document.getElementById(sectionId).classList.add('active-section');
+                document.querySelectorAll('.sidebar-links a').forEach(el => el.classList.remove('active'));
+                element.classList.add('active');
+                toggleSidebar();
+            }
             function loadCategoryUids(cat) {
                 const textarea = document.getElementById("reportUidsTextarea");
                 if(cat && allReports[cat]) {
