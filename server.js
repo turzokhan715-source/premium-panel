@@ -27,10 +27,13 @@ let adminReports = {
     "Facebook": ["FB999", "FB888"]
 };
 
-// Helper function to render file-style text box (Like 2nd picture)
-function formatAsFileBox(detailsText) {
+// Helper function to render file-style text box with Download Button
+function formatAsFileBox(detailsText, itemId) {
     const lines = detailsText.split('\n').filter(line => line.trim() !== '');
-    let fileHtml = `<div style="background: #0f172a; border: 1px solid #334155; border-radius: 6px; text-align: left; max-height: 180px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 12px; display: flex;">`;
+    let fileHtml = `<div style="display: flex; flex-direction: column; gap: 6px;">`;
+    
+    // File Box View
+    fileHtml += `<div style="background: #0f172a; border: 1px solid #334155; border-radius: 6px; text-align: left; max-height: 160px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 12px; display: flex;">`;
     
     // Line numbers column
     fileHtml += `<div style="background: #1e293b; color: #64748b; padding: 8px 10px; user-select: none; border-right: 1px solid #334155; text-align: right;">`;
@@ -38,10 +41,14 @@ function formatAsFileBox(detailsText) {
     fileHtml += `</div>`;
 
     // Content lines column
-    fileHtml += `<div style="padding: 8px 12px; color: #e2e8f0; white-space: pre-wrap; word-break: break-all; flex-grow: 1;">`;
+    fileHtml += `<div style="padding: 8px 12px; color: #e2e8f0; white-space: pre; word-break: normal; flex-grow: 1; overflow-x: auto;">`;
     lines.forEach(line => { fileHtml += `<div>${line}</div>`; });
     fileHtml += `</div></div>`;
 
+    // Download Button below file box
+    fileHtml += `<a href="/admin/download/${itemId}" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.4); padding: 5px 10px; border-radius: 5px; font-size: 12px; text-decoration: none; font-weight: bold; width: fit-content;"><i class="fa-solid fa-download"></i> Download File (.txt)</a>`;
+    
+    fileHtml += `</div>`;
     return fileHtml;
 }
 
@@ -93,7 +100,7 @@ app.get('/', (req, res) => {
             td { background: rgba(30, 41, 59, 0.4); border-bottom: 1px solid rgba(255,255,255,0.05); color: #e2e8f0; }
             .badge-pending { background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
             .badge-success { background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-            .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+            .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; text-decoration: none; display: inline-block; }
         </style>
     </head>
     <body>
@@ -150,9 +157,9 @@ app.get('/', (req, res) => {
                         ${submittedIds.map(item => `
                             <tr>
                                 <td><b>${item.category}</b></td>
-                                <td style="text-align: left;">${formatAsFileBox(item.details)}</td>
+                                <td style="text-align: left; padding: 10px;">${formatAsFileBox(item.details, item.id)}</td>
                                 <td><span class="${item.status === 'Success' ? 'badge-success' : 'badge-pending'}">${item.status}</span></td>
-                                <td><button class="delete-btn" onclick="this.parentElement.parentElement.remove()">Delete</button></td>
+                                <td><a href="/delete/${item.id}" class="delete-btn">Delete</a></td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -160,7 +167,7 @@ app.get('/', (req, res) => {
             </div>
         </div>
 
-        <!-- Report Section (User UID Matching & Claim) -->
+        <!-- Report Section -->
         <div id="reportSection" class="container">
             <h2>📊 ID Report & Claim Box 📊</h2>
             <div class="form-group">
@@ -307,13 +314,38 @@ app.post('/submit-id', (req, res) => {
     const { category, details } = req.body;
     if (category && details) {
         submittedIds.push({
-            id: submittedIds.length + 1,
+            id: submittedIds.length > 0 ? submittedIds[submittedIds.length - 1].id + 1 : 1,
             category: category,
             details: details,
             status: "Pending"
         });
     }
     res.redirect('/');
+});
+
+// Handle Delete ID (Sync for both)
+app.get('/delete/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    submittedIds = submittedIds.filter(s => s.id !== id);
+    if(req.headers.referer && req.headers.referer.includes('/admin')) {
+        res.redirect('/admin');
+    } else {
+        res.redirect('/');
+    }
+});
+
+// Handle Download ID File (.txt)
+app.get('/admin/download/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    const item = submittedIds.find(s => s.id === id);
+    if(item) {
+        res.setHeader('Content-disposition', `attachment; filename=${item.category}_ID_${item.id}.txt`);
+        res.setHeader('Content-type', 'text/plain');
+        res.write(item.details);
+        res.end();
+    } else {
+        res.status(404).send("File not found!");
+    }
 });
 
 // Handle Admin Status Update to Success
@@ -328,6 +360,11 @@ app.post('/admin/update-status/:id', (req, res) => {
 
 // ================= ADMIN PANEL ROUTE =================
 app.get('/admin', (req, res) => {
+    const selectedCategory = req.query.category || "";
+    const filteredIds = selectedCategory 
+        ? submittedIds.filter(item => item.category === selectedCategory) 
+        : submittedIds;
+
     res.send(`
     <!DOCTYPE html>
     <html lang="bn">
@@ -348,7 +385,7 @@ app.get('/admin', (req, res) => {
             .submit-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
             
             .cat-tag-admin { display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.5); padding: 12px 15px; margin-bottom: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
-            .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+            .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; font-size: 12px; }
             .success-btn { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 12px; border-radius: 6px; cursor: default; font-weight: 600; }
             .received-btn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
             
@@ -363,44 +400,17 @@ app.get('/admin', (req, res) => {
             <a href="/" class="back-link"><i class="fa-solid fa-arrow-left"></i> Go to User Panel</a>
             <h2>🛡️ Admin Management & Report Panel 🛡️</h2>
 
-            <!-- Add Category & Price Box -->
+            <!-- Filter By Category -->
             <div class="form-group" style="background: rgba(15, 23, 42, 0.4); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                <label style="color: #38bdf8; font-size: 16px;"><i class="fa-solid fa-folder-plus"></i> Add New Category & Price:</label>
-                <div style="display: flex; gap: 10px; margin-top: 10px;">
-                    <input type="text" id="newCategoryName" placeholder="ক্যাটাগরির নাম...">
-                    <input type="number" id="newCategoryPrice" placeholder="প্রাইজ (৳)..." style="width: 150px;">
-                    <button type="button" class="submit-btn" style="width: 120px;" onclick="addCategory()">Add</button>
-                </div>
-            </div>
-
-            <!-- Existing Categories List -->
-            <div class="form-group">
-                <label>Existing Categories & Prices:</label>
-                <div id="adminCategoryList">
-                    ${categories.map((cat, idx) => `
-                        <div class="cat-tag-admin">
-                            <span><b>${idx + 1}.</b> ${cat.name} — <b style="color: #10b981;">৳${cat.price}</b></span>
-                            <button class="delete-btn" onclick="alert('ডিলিট করা হয়েছে!')">Delete</button>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-
-            <!-- Admin Report UID Add Box -->
-            <div class="form-group" style="background: rgba(15, 23, 42, 0.4); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-top: 30px;">
-                <label style="color: #38bdf8; font-size: 16px;"><i class="fa-solid fa-file-shield"></i> Add Valid UIDs for Report Matching:</label>
-                <div style="display: flex; gap: 10px; margin-top: 10px; margin-bottom: 10px;">
-                    <select id="adminReportCat">
-                        <option value="">-- Select Category --</option>
-                        ${categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
-                    </select>
-                </div>
-                <textarea id="adminReportUids" placeholder="UID গুলো এখানে পেস্ট করুন (কমা বা নতুন লাইনে)..."></textarea>
-                <button type="button" class="submit-btn" style="margin-top: 10px;" onclick="saveAdminReport()">Save UIDs</button>
+                <label style="color: #38bdf8; font-size: 16px;"><i class="fa-solid fa-filter"></i> Filter Submitted IDs by Category:</label>
+                <select id="filterCategory" onchange="filterByCategory(this.value)" style="margin-top: 10px;">
+                    <option value="">-- All Categories --</option>
+                    ${categories.map(c => `<option value="${c.name}" ${selectedCategory === c.name ? 'selected' : ''}>${c.name}</option>`).join('')}
+                </select>
             </div>
 
             <!-- Google Sheet Format Submitted IDs View -->
-            <div style="margin-top: 40px;">
+            <div style="margin-top: 30px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3 style="color: #cbd5e1;"><i class="fa-solid fa-table"></i> Submitted IDs (Google Sheet View)</h3>
                 </div>
@@ -410,53 +420,38 @@ app.get('/admin', (req, res) => {
                         <tr>
                             <th style="width: 60px;">SL</th>
                             <th style="width: 130px;">Category</th>
-                            <th>Account Details (File View)</th>
+                            <th>Account Details (File View & Download)</th>
                             <th style="width: 110px;">Status Action</th>
                             <th style="width: 80px;">Action</th>
                         </tr>
                     </thead>
                     <tbody id="adminTableBody">
-                        ${submittedIds.map((item, idx) => `
+                        ${filteredIds.length > 0 ? filteredIds.map((item, idx) => `
                             <tr>
                                 <td>${idx + 1}</td>
                                 <td><b style="color: #38bdf8;">${item.category}</b></td>
-                                <td style="text-align: left;">${formatAsFileBox(item.details)}</td>
+                                <td style="text-align: left; padding: 10px;">${formatAsFileBox(item.details, item.id)}</td>
                                 <td>
                                     ${item.status === 'Success' 
                                         ? `<button class="success-btn" style="padding: 6px 12px; font-size: 12px;">Success ✓</button>`
                                         : `<form action="/admin/update-status/${item.id}" method="POST"><button type="submit" class="received-btn" style="padding: 6px 12px; font-size: 12px;">Received</button></form>`
                                     }
                                 </td>
-                                <td><button class="delete-btn">Delete</button></td>
+                                <td><a href="/delete/${item.id}" class="delete-btn">Delete</a></td>
                             </tr>
-                        `).join('')}
+                        `).join('') : `<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">কোনো আইডি পাওয়া যায়নি!</td></tr>`}
                     </tbody>
                 </table>
             </div>
         </div>
 
         <script>
-            function addCategory() {
-                const name = document.getElementById("newCategoryName").value.trim();
-                const price = document.getElementById("newCategoryPrice").value.trim();
-                if(name && price) {
-                    alert("নতুন ক্যাটাগরি ও প্রাইজ সফলভাবে যোগ হয়েছে!");
-                    document.getElementById("newCategoryName").value = "";
-                    document.getElementById("newCategoryPrice").value = "";
+            function filterByCategory(cat) {
+                if(cat) {
+                    window.location.href = "/admin?category=" + encodeURIComponent(cat);
                 } else {
-                    alert("দয়া করে নাম এবং প্রাইজ উভয়ই দিন!");
+                    window.location.href = "/admin";
                 }
-            }
-
-            function saveAdminReport() {
-                const cat = document.getElementById("adminReportCat").value;
-                const uids = document.getElementById("adminReportUids").value.trim();
-                if(!cat || !uids) {
-                    alert("ক্যাটাগরি এবং UID উভয়ই প্রদান করুন!");
-                    return;
-                }
-                alert(cat + " ক্যাটাগরিতে UID সফলভাবে সেভ করা হয়েছে!");
-                document.getElementById("adminReportUids").value = "";
             }
         </script>
     </body>
