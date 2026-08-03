@@ -1,132 +1,23 @@
-const express = require("express");
-const fs = require("fs");
-const path = require("path");
-
+const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 
-const DB = path.join(__dirname, "..", "data.json");
+const DATA_FILE = path.join(__dirname, '../data.json');
 
+const defaultCategories = [
+    { id: 'instagram_2fa', name: 'Instagram 2FA ID', icon: '📸', gradient: 'linear-gradient(135deg, #f09433 0%, #dc2743 50%, #bc1888 100%)' },
+    { id: 'fb_page_cookies', name: 'Facebook Page Cookies', icon: '📄', gradient: 'linear-gradient(135deg, #1877f2 0%, #0d5bb9 100%)' },
+    { id: 'fb_cookies_id', name: 'Facebook Cookies ID', icon: '🍪', gradient: 'linear-gradient(135deg, #00c6ff 0%, #0072ff 100%)' },
+    { id: 'hotmail_cookies', name: 'Hotmail Page Cookie\'s ID', icon: '✉️', gradient: 'linear-gradient(135deg, #00a4ef 0%, #0072c6 100%)' }
+];
 
-function loadDB(){
-
-    return JSON.parse(
-        fs.readFileSync(DB)
-    );
-
-}
-
-
-function saveDB(data){
-
-    fs.writeFileSync(
-        DB,
-        JSON.stringify(data,null,2)
-    );
-
-}
-
-
-// Get Current User
-
-router.get("/user", (req,res)=>{
-
-
-    if(!req.session.user){
-
-        return res.json({
-            success:false,
-            message:"Not logged in"
-        });
-
+router.get('/categories', (req, res) => {
+    if (fs.existsSync(DATA_FILE)) {
+        const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+        return res.json({ success: true, categories: data.categories || defaultCategories });
     }
-
-
-    const db = loadDB();
-
-
-    const user = db.users.find(
-        u=>u.id === req.session.user.id
-    );
-
-
-    res.json({
-
-        success:true,
-
-        user
-
-    });
-
-
+    res.json({ success: true, categories: defaultCategories });
 });
-
-
-
-// Notifications
-
-router.get("/notifications",(req,res)=>{
-
-
-    const db = loadDB();
-
-
-    res.json({
-
-        success:true,
-
-        notifications:db.notifications || []
-
-    });
-
-
-});
-
-
-
-// Add Balance (Admin Use)
-
-router.post("/balance/add",(req,res)=>{
-
-
-    const {userId, amount} = req.body;
-
-
-    const db = loadDB();
-
-
-    const user = db.users.find(
-        u=>u.id === userId
-    );
-
-
-    if(!user){
-
-        return res.json({
-
-            success:false,
-
-            message:"User not found"
-
-        });
-
-    }
-
-
-    user.balance += Number(amount);
-
-
-    saveDB(db);
-
-
-    res.json({
-
-        success:true
-
-    });
-
-
-});
-
-
 
 module.exports = router;
