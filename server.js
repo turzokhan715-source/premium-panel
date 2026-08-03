@@ -398,7 +398,7 @@ app.get('/', (req, res) => {
                 </div>
                 <div class="form-group">
                     <label>Amount (BDT):</label>
-                    <input type="number" name="amount" placeholder="পরিমাণ..." required>
+                    <input type="number" step="any" name="amount" placeholder="পরিমাণ..." required>
                 </div>
                 <button type="submit" class="submit-btn">Send Payment Request</button>
             </form>
@@ -830,7 +830,7 @@ app.get('/admin', (req, res) => {
                 </div>
                 <div class="form-group">
                     <label>Price (BDT):</label>
-                    <input type="number" name="price" placeholder="৳ মূল্য..." required>
+                    <input type="number" step="any" name="price" placeholder="৳ মূল্য..." required>
                 </div>
                 <button type="submit" class="submit-btn" style="background: linear-gradient(135deg, #10b981, #059669);"><i class="fa-solid fa-plus"></i> Add Category</button>
             </form>
