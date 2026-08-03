@@ -5,7 +5,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// In-Memory Database (সব ডেমো ডাটা মুছে ব্ল্যাংক করে দেওয়া হয়েছে)
+// In-Memory Database
 let categories = [
     { name: "Free Fire", price: 50 },
     { name: "Facebook", price: 100 },
@@ -13,16 +13,17 @@ let categories = [
     { name: "Page", price: 200 }
 ];
 
-let submittedIds = []; // সম্পূর্ণ খালি
-let adminReports = {}; // সম্পূর্ণ খালি
+let submittedIds = [];
+let adminReports = {};
 let claimedUidsStore = {
     "Free Fire": [],
     "Facebook": [],
     "Gmail": [],
     "Page": []
 };
-let paymentRequests = []; // সম্পূর্ণ খালি
-let usersList = []; // সম্পূর্ণ খালি
+let paymentRequests = [];
+let usersList = [];
+let adminAuthenticatedSessions = {}; // Admin session storage
 
 // Helper function: Fixed design for file box layout
 function formatAsFileBox(detailsText, itemId) {
@@ -58,8 +59,8 @@ app.get('/auth', (req, res) => {
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-            body { background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-            .auth-card { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.1); width: 100%; max-width: 420px; padding: 35px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); }
+            body { background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 15px; }
+            .auth-card { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.1); width: 100%; max-width: 420px; padding: 30px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); }
             .brand-title { text-align: center; margin-bottom: 25px; }
             .brand-title h2 { font-size: 24px; color: #38bdf8; font-weight: 700; margin-bottom: 6px; }
             .brand-title p { font-size: 13px; color: #94a3b8; }
@@ -71,8 +72,11 @@ app.get('/auth', (req, res) => {
             .submit-btn:hover { opacity: 0.9; }
             .toggle-link { text-align: center; margin-top: 20px; font-size: 14px; color: #94a3b8; }
             .toggle-link a { color: #38bdf8; text-decoration: none; font-weight: bold; }
-            .admin-link-box { text-align: center; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 15px; }
-            .admin-link-box a { color: #f43f5e; font-size: 13px; text-decoration: none; font-weight: bold; }
+            
+            @media (max-width: 480px) {
+                .auth-card { padding: 20px; }
+                .brand-title h2 { font-size: 20px; }
+            }
         </style>
     </head>
     <body>
@@ -125,36 +129,19 @@ app.get('/auth', (req, res) => {
                     অ্যাকাউন্ট নেই? <a href="/auth?mode=register">রেজিস্ট্রেশন করুন</a>
                 </div>
             `}
-            <div class="admin-link-box">
-                <a href="#" onclick="openAdminLogin()"><i class="fa-solid fa-user-shield"></i> Go to Admin Panel</a>
-            </div>
         </div>
-
-        <script>
-            function openAdminLogin() {
-                const pass = prompt("অ্যাডমিন প্যানেলে ঢুকতে পাসওয়ার্ড দিন:");
-                if(pass === "@NOYONVAI") {
-                    window.location.href = "/admin";
-                } else if(pass !== null) {
-                    alert("ভুল পাসওয়ার্ড! প্রবেশাধিকার সংরক্ষিত।");
-                }
-            }
-        </script>
     </body>
     </html>
     `);
 });
 
-// Handle Registration Processing (Duplicate Check & 0 Balance)
+// Handle Registration Processing
 app.post('/register', (req, res) => {
     const { name, email, telegram, username, password } = req.body;
-    
     const exists = usersList.find(u => u.email === email || u.username === username);
     if(exists) {
         return res.send(`<script>alert("এই জিমেইল অথবা ইউজারনেম দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট খোলা রয়েছে!"); window.location.href='/auth?mode=register';</script>`);
     }
-
-    // New user gets 0 balance
     usersList.push({ name, email, telegram, username, password, balance: 0 });
     res.redirect(`/auth?mode=login`);
 });
@@ -163,7 +150,6 @@ app.post('/register', (req, res) => {
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
     const user = usersList.find(u => u.email === email && u.password === password);
-
     if(user) {
         res.redirect(`/?user=${encodeURIComponent(user.email)}`);
     } else {
@@ -172,23 +158,68 @@ app.post('/login', (req, res) => {
 });
 
 
+// ================= ADMIN LOGIN ROUTE (@NOYONVAI) =================
+app.get('/admin-login', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="bn">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Admin Login - Portal</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+            body { background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 15px; }
+            .auth-card { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.1); width: 100%; max-width: 400px; padding: 30px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); text-align: center; }
+            .brand-title h2 { font-size: 24px; color: #f43f5e; font-weight: 700; margin-bottom: 6px; }
+            .brand-title p { font-size: 13px; color: #94a3b8; margin-bottom: 20px; }
+            .form-group { margin-bottom: 18px; text-align: left; }
+            label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #cbd5e1; }
+            input { width: 100%; padding: 12px 14px; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; outline: none; font-size: 14px; }
+            .submit-btn { background: linear-gradient(135deg, #f43f5e, #be123c); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        </style>
+    </head>
+    <body>
+        <div class="auth-card">
+            <div class="brand-title">
+                <h2><i class="fa-solid fa-user-shield"></i> Admin Portal</h2>
+                <p>অ্যাডমিন প্যানেলে প্রবেশ করতে পাসওয়ার্ড দিন</p>
+            </div>
+            <form action="/admin-auth" method="POST">
+                <div class="form-group">
+                    <label><i class="fa-solid fa-lock"></i> Admin Password:</label>
+                    <input type="password" name="password" placeholder="পাসওয়ার্ড লিখুন..." required>
+                </div>
+                <button type="submit" class="submit-btn"><i class="fa-solid fa-right-to-bracket"></i> Enter Admin Panel</button>
+            </form>
+        </div>
+    </body>
+    </html>
+    `);
+});
+
+app.post('/admin-auth', (req, res) => {
+    const { password } = req.body;
+    if(password === "@NOYONVAI") {
+        const token = Math.random().toString(36).substring(2);
+        adminAuthenticatedSessions[token] = true;
+        res.cookie('admin_token', token, { httpOnly: true });
+        res.redirect('/admin');
+    } else {
+        res.send(`<script>alert("ভুল পাসওয়ার্ড!"); window.location.href='/admin-login';</script>`);
+    }
+});
+
+
 // ================= USER PANEL ROUTE =================
 app.get('/', (req, res) => {
     const userEmailQuery = req.query.user;
-    
-    // নতুন সিকিউরিটি: লিংকে ইউজার না থাকলে সরাসরি লগইন পেজে পাঠাবে
-    if(!userEmailQuery) {
-        return res.redirect('/auth?mode=login');
-    }
+    if(!userEmailQuery) return res.redirect('/auth?mode=login');
 
     const currentUser = usersList.find(u => u.email === userEmailQuery);
-    
-    // ডাটাবেসে ইউজার না থাকলেও লগইন পেজে পাঠাবে
-    if(!currentUser) {
-        return res.redirect('/auth?mode=login');
-    }
+    if(!currentUser) return res.redirect('/auth?mode=login');
 
-    // Filter submissions and payment requests for THIS user only
     const userSubmissions = submittedIds.filter(item => item.userEmail === currentUser.email);
     const userPayments = paymentRequests.filter(pay => pay.userEmail === currentUser.email);
 
@@ -202,43 +233,49 @@ app.get('/', (req, res) => {
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-            body { background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; min-height: 100vh; }
-            .top-bar { background: rgba(30, 41, 59, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.1); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+            body { background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; min-height: 100vh; overflow-x: hidden; }
+            .top-bar { background: rgba(30, 41, 59, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.1); color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
             .menu-btn { background: none; border: none; color: #38bdf8; font-size: 22px; cursor: pointer; }
-            .user-info { display: flex; align-items: center; gap: 20px; font-size: 15px; font-weight: 500; }
-            .balance-box { background: linear-gradient(135deg, #10b981, #059669); padding: 6px 14px; border-radius: 20px; font-weight: bold; }
-            .logout-link { color: #f43f5e; text-decoration: none; font-size: 14px; font-weight: bold; background: rgba(244,63,94,0.1); padding: 5px 10px; border-radius: 6px; }
+            .user-info { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 500; flex-wrap: wrap; justify-content: flex-end; }
+            .balance-box { background: linear-gradient(135deg, #10b981, #059669); padding: 5px 10px; border-radius: 20px; font-weight: bold; font-size: 13px; }
+            .logout-link { color: #f43f5e; text-decoration: none; font-size: 13px; font-weight: bold; background: rgba(244,63,94,0.1); padding: 5px 8px; border-radius: 6px; }
             
             .sidebar { height: 100%; width: 260px; position: fixed; z-index: 101; top: 0; left: -260px; background-color: #0f172a; color: white; transition: 0.3s ease-in-out; padding-top: 20px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid rgba(255,255,255,0.05); }
             .sidebar-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
             .close-btn { background: none; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; }
             .sidebar-links { list-style: none; padding: 20px 0; flex-grow: 1; }
-            .sidebar-links li a { padding: 14px 20px; text-decoration: none; font-size: 16px; color: #cbd5e1; display: flex; align-items: center; gap: 12px; transition: 0.2s; cursor: pointer; }
+            .sidebar-links li a { padding: 14px 20px; text-decoration: none; font-size: 15px; color: #cbd5e1; display: flex; align-items: center; gap: 12px; transition: 0.2s; cursor: pointer; }
             .sidebar-links li a:hover, .sidebar-links li a.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
             .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 13px; color: #94a3b8; }
             .sidebar-footer a { color: #38bdf8; text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 8px; margin-top: 6px; }
             
-            .container { max-width: 900px; margin: 100px auto 40px auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; }
+            .container { max-width: 900px; margin: 90px auto 30px auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; width: 95%; }
             .container.active-section { display: block; }
             
-            .section-header-banner { text-align: center; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 15px; }
-            .section-header-banner h2 { color: #f8fafc; font-size: 26px; font-weight: 700; margin-bottom: 5px; }
-            .section-header-banner p { color: #38bdf8; font-size: 14px; font-weight: 500; }
+            .section-header-banner { text-align: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 15px; }
+            .section-header-banner h2 { color: #f8fafc; font-size: 22px; font-weight: 700; margin-bottom: 5px; }
+            .section-header-banner p { color: #38bdf8; font-size: 13px; font-weight: 500; }
 
-            .form-group { margin-bottom: 20px; }
-            label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #94a3b8; }
-            select, input, textarea { width: 100%; padding: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-size: 15px; color: white; outline: none; }
-            textarea { resize: vertical; height: 120px; }
-            .submit-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-            .history-section { margin-top: 40px; }
-            .history-section h3 { font-size: 20px; margin-bottom: 15px; color: #cbd5e1; }
-            table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
-            th, td { padding: 14px; text-align: center; font-size: 14px; vertical-align: middle; }
+            .form-group { margin-bottom: 18px; }
+            label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #94a3b8; }
+            select, input, textarea { width: 100%; padding: 12px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-size: 14px; color: white; outline: none; }
+            textarea { resize: vertical; height: 110px; }
+            .submit-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+            .history-section { margin-top: 30px; overflow-x: auto; }
+            .history-section h3 { font-size: 18px; margin-bottom: 12px; color: #cbd5e1; }
+            table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); min-width: 600px; }
+            th, td { padding: 12px; text-align: center; font-size: 13px; vertical-align: middle; }
             th { background: rgba(15, 23, 42, 0.8); color: #38bdf8; font-weight: 600; }
             td { background: rgba(30, 41, 59, 0.4); border-bottom: 1px solid rgba(255,255,255,0.05); color: #e2e8f0; }
-            .badge-pending { background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-            .badge-success { background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-            .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; text-decoration: none; display: inline-block; }
+            .badge-pending { background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+            .badge-success { background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+            .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; text-decoration: none; display: inline-block; }
+
+            @media (max-width: 600px) {
+                .container { padding: 15px; margin-top: 80px; }
+                .section-header-banner h2 { font-size: 18px; }
+                .user-info span { display: none; }
+            }
         </style>
     </head>
     <body>
@@ -295,7 +332,7 @@ app.get('/', (req, res) => {
                 <h3>My Submissions History</h3>
                 <table>
                     <thead>
-                        <tr><th style="width: 120px;">Category</th><th>Details (File View)</th><th style="width: 100px;">Status</th><th style="width: 80px;">Action</th></tr>
+                        <tr><th style="width: 100px;">Category</th><th>Details (File View)</th><th style="width: 90px;">Status</th><th style="width: 70px;">Action</th></tr>
                     </thead>
                     <tbody>
                         ${userSubmissions.length > 0 ? userSubmissions.map(item => `
@@ -331,7 +368,7 @@ app.get('/', (req, res) => {
             <button type="button" class="submit-btn" onclick="checkUserUids()"><i class="fa-solid fa-magnifying-glass"></i> Check & Match UIDs</button>
 
             <div id="matchResultBox" style="margin-top: 25px; display: none;">
-                <h3 style="margin-bottom: 10px; color: #cbd5e1;">Matching Result:</h3>
+                <h3 style="margin-bottom: 10px; color: #cbd5e1; font-size: 16px;">Matching Result:</h3>
                 <div id="matchedListContainer" style="background: rgba(15,23,42,0.6); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); max-height: 200px; overflow-y: auto; margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 8px;"></div>
                 <button type="button" id="claimBtn" class="submit-btn" style="background: linear-gradient(135deg, #10b981, #059669); display: none;" onclick="claimRewards()"><i class="fa-solid fa-hand-holding-dollar"></i> Claim Reward to Balance</button>
             </div>
@@ -396,7 +433,6 @@ app.get('/', (req, res) => {
             const claimedUidsStoreData = ${JSON.stringify(claimedUidsStore)};
             const categoryPrices = ${JSON.stringify(categories.reduce((acc, c) => ({...acc, [c.name]: c.price}), {}))};
 
-            // Maintain active section on page reload using localStorage
             function switchSection(sectionId, element, saveToStorage = true) {
                 document.querySelectorAll('.container').forEach(el => el.classList.remove('active-section'));
                 document.getElementById(sectionId).classList.add('active-section');
@@ -413,14 +449,12 @@ app.get('/', (req, res) => {
                     localStorage.setItem('activeUserSection', sectionId);
                 }
                 
-                // Close sidebar if open
                 const sidebar = document.getElementById("mySidebar");
                 if(sidebar.style.left === "0px") {
                     sidebar.style.left = "-260px";
                 }
             }
 
-            // On load, restore the previous active section
             window.onload = function() {
                 const savedSection = localStorage.getItem('activeUserSection') || 'homeSection';
                 switchSection(savedSection, null, false);
@@ -482,7 +516,7 @@ app.get('/', (req, res) => {
                         badgeText = " (Invalid)";
                     }
 
-                    containerHtml += \`<div style="background: \${bgColor}; border: 1px solid \${borderColor}; color: \${textColor}; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 13px;">\${uid}\${badgeText}</div>\`;
+                    containerHtml += \`<div style="background: \${bgColor}; border: 1px solid \${borderColor}; color: \${textColor}; padding: 5px 10px; border-radius: 6px; font-weight: bold; font-size: 12px;">\${uid}\${badgeText}</div>\`;
                 });
 
                 document.getElementById("matchedListContainer").innerHTML = containerHtml;
@@ -594,14 +628,12 @@ app.get('/delete/:id', (req, res) => {
     }
 });
 
-// Handle Delete Payment Request
 app.get('/admin/delete-payment/:id', (req, res) => {
     const id = parseInt(req.params.id);
     paymentRequests = paymentRequests.filter(p => p.id !== id);
     res.redirect('/admin');
 });
 
-// Handle Download ID File (.txt)
 app.get('/admin/download/:id', (req, res) => {
     const id = parseInt(req.params.id);
     const item = submittedIds.find(s => s.id === id);
@@ -615,27 +647,20 @@ app.get('/admin/download/:id', (req, res) => {
     }
 });
 
-// Handle Admin Status Update to Success (Submitted IDs)
 app.post('/admin/update-status/:id', (req, res) => {
     const id = parseInt(req.params.id);
     const item = submittedIds.find(s => s.id === id);
-    if(item) {
-        item.status = "Success";
-    }
+    if(item) item.status = "Success";
     res.redirect('/admin');
 });
 
-// Handle Admin Payment Request Status Update to Success
 app.post('/admin/update-payment/:id', (req, res) => {
     const id = parseInt(req.params.id);
     const payment = paymentRequests.find(p => p.id === id);
-    if(payment) {
-        payment.status = "Success";
-    }
+    if(payment) payment.status = "Success";
     res.redirect('/admin');
 });
 
-// Handle Admin Add Category & Price
 app.post('/admin/add-category', (req, res) => {
     const { name, price } = req.body;
     if (name && price) {
@@ -647,14 +672,12 @@ app.post('/admin/add-category', (req, res) => {
     res.redirect('/admin');
 });
 
-// Handle Admin Delete Category
 app.get('/admin/delete-category/:name', (req, res) => {
     const catName = req.params.name;
     categories = categories.filter(c => c.name !== catName);
     res.redirect('/admin');
 });
 
-// Handle Admin Save/Update Report UIDs
 app.post('/admin/save-report', (req, res) => {
     const { category, uids } = req.body;
     if (category) {
@@ -664,8 +687,16 @@ app.post('/admin/save-report', (req, res) => {
     res.redirect('/admin');
 });
 
-// ================= ADMIN PANEL ROUTE =================
+// ================= ADMIN PANEL ROUTE (Secured with Password) =================
 app.get('/admin', (req, res) => {
+    const cookieHeader = req.headers.cookie || '';
+    const tokenMatch = cookieHeader.split('; ').find(row => row.startsWith('admin_token='));
+    const token = tokenMatch ? tokenMatch.split('=')[1] : null;
+
+    if (!token || !adminAuthenticatedSessions[token]) {
+        return res.redirect('/admin-login');
+    }
+
     const selectedCategory = req.query.category || "";
     const filteredIds = selectedCategory 
         ? submittedIds.filter(item => item.category === selectedCategory) 
@@ -681,37 +712,43 @@ app.get('/admin', (req, res) => {
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-            body { background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; min-height: 100vh; }
-            .top-bar { background: rgba(30, 41, 59, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.1); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+            body { background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; min-height: 100vh; overflow-x: hidden; }
+            .top-bar { background: rgba(30, 41, 59, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.1); color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
             .menu-btn { background: none; border: none; color: #38bdf8; font-size: 22px; cursor: pointer; }
             .sidebar { height: 100%; width: 260px; position: fixed; z-index: 101; top: 0; left: -260px; background-color: #0f172a; color: white; transition: 0.3s ease-in-out; padding-top: 20px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid rgba(255,255,255,0.05); }
             .sidebar-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
             .close-btn { background: none; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; }
             .sidebar-links { list-style: none; padding: 20px 0; flex-grow: 1; }
-            .sidebar-links li a { padding: 14px 20px; text-decoration: none; font-size: 16px; color: #cbd5e1; display: flex; align-items: center; gap: 12px; transition: 0.2s; cursor: pointer; }
+            .sidebar-links li a { padding: 14px 20px; text-decoration: none; font-size: 15px; color: #cbd5e1; display: flex; align-items: center; gap: 12px; transition: 0.2s; cursor: pointer; }
             .sidebar-links li a:hover, .sidebar-links li a.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
             .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 13px; color: #94a3b8; }
             .sidebar-footer a { color: #38bdf8; text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 8px; margin-top: 6px; }
             
-            .container { max-width: 950px; margin: 100px auto 40px auto; background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; }
+            .container { max-width: 950px; margin: 90px auto 30px auto; background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; width: 95%; }
             .container.active-section { display: block; }
             
-            .section-header-banner { text-align: center; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 15px; }
-            .section-header-banner h2 { color: #38bdf8; font-size: 26px; font-weight: 700; margin-bottom: 5px; }
-            .section-header-banner p { color: #94a3b8; font-size: 14px; font-weight: 500; }
+            .section-header-banner { text-align: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 15px; }
+            .section-header-banner h2 { color: #38bdf8; font-size: 22px; font-weight: 700; margin-bottom: 5px; }
+            .section-header-banner p { color: #94a3b8; font-size: 13px; font-weight: 500; }
 
-            .form-group { margin-bottom: 20px; }
-            label { display: block; margin-bottom: 8px; font-weight: 600; color: #94a3b8; font-size: 14px; }
-            input, select, textarea { width: 100%; padding: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; outline: none; font-size: 15px; }
-            textarea { resize: vertical; height: 120px; }
-            .submit-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
-            .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; font-size: 12px; }
-            .success-btn { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 12px; border-radius: 6px; cursor: default; font-weight: 600; font-size: 12px; }
-            .received-btn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; }
-            .sheet-table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 6px; overflow: hidden; margin-top: 15px; }
-            .sheet-table th { background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 12px; font-size: 14px; }
-            .sheet-table td { border: 1px solid #334155; padding: 12px; color: #e2e8f0; vertical-align: middle; font-size: 14px; text-align: center; }
-            .back-btn-top { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 6px 14px; border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 6px; }
+            .form-group { margin-bottom: 18px; }
+            label { display: block; margin-bottom: 6px; font-weight: 600; color: #94a3b8; font-size: 13px; }
+            input, select, textarea { width: 100%; padding: 12px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; outline: none; font-size: 14px; }
+            textarea { resize: vertical; height: 110px; }
+            .submit-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; }
+            .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; font-size: 11px; }
+            .success-btn { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 5px 10px; border-radius: 6px; cursor: default; font-weight: 600; font-size: 11px; }
+            .received-btn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11px; }
+            .sheet-table-wrapper { overflow-x: auto; width: 100%; }
+            .sheet-table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 6px; overflow: hidden; margin-top: 15px; min-width: 650px; }
+            .sheet-table th { background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 10px; font-size: 13px; }
+            .sheet-table td { border: 1px solid #334155; padding: 10px; color: #e2e8f0; vertical-align: middle; font-size: 13px; text-align: center; }
+            .back-btn-top { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 5px 12px; border-radius: 20px; text-decoration: none; font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 6px; }
+
+            @media (max-width: 600px) {
+                .container { padding: 15px; margin-top: 80px; }
+                .section-header-banner h2 { font-size: 18px; }
+            }
         </style>
     </head>
     <body>
@@ -745,37 +782,39 @@ app.get('/admin', (req, res) => {
                 <h2>💳 User Payment Requests Management 💳</h2>
                 <p>ইউজারদের পাঠানো পেমেন্ট রিকোয়েস্টগুলো যাচাই করুন এবং টাকা পাঠিয়ে সাকসেস করুন।</p>
             </div>
-            <table class="sheet-table">
-                <thead>
-                    <tr>
-                        <th style="width: 50px;">SL</th>
-                        <th>User Email</th>
-                        <th>Method</th>
-                        <th>Account Number</th>
-                        <th>Amount</th>
-                        <th style="width: 120px;">Action Status</th>
-                        <th style="width: 80px;">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${paymentRequests.length > 0 ? paymentRequests.map((pay, idx) => `
+            <div class="sheet-table-wrapper">
+                <table class="sheet-table">
+                    <thead>
                         <tr>
-                            <td>${idx + 1}</td>
-                            <td style="font-size: 12px; color: #94a3b8;">${pay.userEmail}</td>
-                            <td><b>${pay.method}</b></td>
-                            <td>${pay.number}</td>
-                            <td style="color: #10b981; font-weight: bold;">৳${pay.amount}</td>
-                            <td>
-                                ${pay.status === 'Success' 
-                                    ? `<button class="success-btn">Success ✓</button>`
-                                    : `<form action="/admin/update-payment/${pay.id}" method="POST"><button type="submit" class="received-btn">Send Money</button></form>`
-                                }
-                            </td>
-                            <td><a href="/admin/delete-payment/${pay.id}" class="delete-btn">Delete</a></td>
+                            <th style="width: 45px;">SL</th>
+                            <th>User Email</th>
+                            <th>Method</th>
+                            <th>Account Number</th>
+                            <th>Amount</th>
+                            <th style="width: 110px;">Action Status</th>
+                            <th style="width: 75px;">Action</th>
                         </tr>
-                    `).join('') : `<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">কোনো পেমেন্ট রিকোয়েস্ট নেই!</td></tr>`}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        ${paymentRequests.length > 0 ? paymentRequests.map((pay, idx) => `
+                            <tr>
+                                <td>${idx + 1}</td>
+                                <td style="font-size: 11px; color: #94a3b8;">${pay.userEmail}</td>
+                                <td><b>${pay.method}</b></td>
+                                <td>${pay.number}</td>
+                                <td style="color: #10b981; font-weight: bold;">৳${pay.amount}</td>
+                                <td>
+                                    ${pay.status === 'Success' 
+                                        ? `<button class="success-btn">Success ✓</button>`
+                                        : `<form action="/admin/update-payment/${pay.id}" method="POST"><button type="submit" class="received-btn">Send Money</button></form>`
+                                    }
+                                </td>
+                                <td><a href="/admin/delete-payment/${pay.id}" class="delete-btn">Delete</a></td>
+                            </tr>
+                        `).join('') : `<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">কোনো পেমেন্ট রিকোয়েস্ট নেই!</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- 2. Category & Price Section -->
@@ -797,10 +836,10 @@ app.get('/admin', (req, res) => {
             </form>
 
             <div style="margin-top: 25px;">
-                <h3 style="color: #cbd5e1; margin-bottom: 12px; font-size: 16px;">Existing Categories:</h3>
+                <h3 style="color: #cbd5e1; margin-bottom: 12px; font-size: 15px;">Existing Categories:</h3>
                 <div style="display: flex; flex-wrap: wrap; gap: 10px;">
                     ${categories.map(c => `
-                        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); padding: 8px 14px; border-radius: 6px; display: flex; align-items: center; gap: 12px; font-size: 14px;">
+                        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 6px; display: flex; align-items: center; gap: 10px; font-size: 13px;">
                             <span><b>${c.name}</b> (৳${c.price})</span>
                             <a href="/admin/delete-category/${encodeURIComponent(c.name)}" style="color: #f43f5e; text-decoration: none;"><i class="fa-solid fa-xmark"></i></a>
                         </div>
@@ -845,33 +884,35 @@ app.get('/admin', (req, res) => {
                 </select>
             </div>
 
-            <table class="sheet-table" style="margin-top: 20px;">
-                <thead>
-                    <tr>
-                        <th style="width: 50px;">SL</th>
-                        <th style="width: 120px;">Category</th>
-                        <th>Account Details (File View & Download)</th>
-                        <th style="width: 110px;">Status Action</th>
-                        <th style="width: 80px;">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${filteredIds.length > 0 ? filteredIds.map((item, idx) => `
+            <div class="sheet-table-wrapper">
+                <table class="sheet-table" style="margin-top: 15px;">
+                    <thead>
                         <tr>
-                            <td>${idx + 1}</td>
-                            <td><b style="color: #38bdf8;">${item.category}</b></td>
-                            <td style="text-align: left; padding: 10px;">${formatAsFileBox(item.details, item.id)}</td>
-                            <td>
-                                ${item.status === 'Success' 
-                                    ? `<button class="success-btn">Success ✓</button>`
-                                    : `<form action="/admin/update-status/${item.id}" method="POST"><button type="submit" class="received-btn">Received</button></form>`
-                                }
-                            </td>
-                            <td><a href="/delete/${item.id}" class="delete-btn">Delete</a></td>
+                            <th style="width: 45px;">SL</th>
+                            <th style="width: 100px;">Category</th>
+                            <th>Account Details (File View & Download)</th>
+                            <th style="width: 100px;">Status Action</th>
+                            <th style="width: 75px;">Action</th>
                         </tr>
-                    `).join('') : `<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">কোনো আইডি পাওয়া যায়নি!</td></tr>`}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        ${filteredIds.length > 0 ? filteredIds.map((item, idx) => `
+                            <tr>
+                                <td>${idx + 1}</td>
+                                <td><b style="color: #38bdf8;">${item.category}</b></td>
+                                <td style="text-align: left; padding: 10px;">${formatAsFileBox(item.details, item.id)}</td>
+                                <td>
+                                    ${item.status === 'Success' 
+                                        ? `<button class="success-btn">Success ✓</button>`
+                                        : `<form action="/admin/update-status/${item.id}" method="POST"><button type="submit" class="received-btn">Received</button></form>`
+                                    }
+                                </td>
+                                <td><a href="/delete/${item.id}" class="delete-btn">Delete</a></td>
+                            </tr>
+                        `).join('') : `<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">কোনো আইডি পাওয়া যায়নি!</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <script>
