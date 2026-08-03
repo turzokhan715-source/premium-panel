@@ -23,8 +23,22 @@ let submittedIds = [
 ];
 
 let adminReports = {
-    "Free Fire": ["UID101", "UID102", "UID103"],
+    "Free Fire": ["61592277435372", "61592319103567", "61592730895703"],
     "Facebook": ["FB999", "FB888"]
+};
+
+// Track already claimed UIDs globally per category to prevent double claiming
+let claimedUidsStore = {
+    "Free Fire": [],
+    "Facebook": [],
+    "Gmail": [],
+    "Page": []
+};
+
+// User state container (for single test user session)
+let userData = {
+    name: "রাহিম",
+    balance: 1250
 };
 
 // Helper function: Fixed design for file box layout
@@ -97,8 +111,8 @@ app.get('/', (req, res) => {
         <div class="top-bar">
             <button class="menu-btn" onclick="toggleSidebar()"><i class="fa-solid fa-bars-staggered"></i></button>
             <div class="user-info">
-                <span>স্বাগতম, রাহিম!</span>
-                <div class="balance-box" id="userBalance">💰 ৳1,250</div>
+                <span>স্বাগতম, ${userData.name}!</span>
+                <div class="balance-box" id="userBalance">💰 ৳${userData.balance}</div>
             </div>
         </div>
 
@@ -177,7 +191,7 @@ app.get('/', (req, res) => {
 
             <div id="matchResultBox" style="margin-top: 25px; display: none;">
                 <h3 style="margin-bottom: 10px; color: #cbd5e1;">Matching Result:</h3>
-                <div id="matchedListContainer" style="background: rgba(15,23,42,0.6); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                <div id="matchedListContainer" style="background: rgba(15,23,42,0.6); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); max-height: 200px; overflow-y: auto; margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 8px;"></div>
                 <button type="button" id="claimBtn" class="submit-btn" style="background: linear-gradient(135deg, #10b981, #059669); display: none;" onclick="claimRewards()"><i class="fa-solid fa-hand-holding-dollar"></i> Claim Reward to Balance</button>
             </div>
         </div>
@@ -185,10 +199,10 @@ app.get('/', (req, res) => {
         <!-- Payment Section -->
         <div id="paymentSection" class="container">
             <h2>💳 Request Payment 💳</h2>
-            <form onsubmit="submitPayment(event)">
+            <form action="/request-payment" method="POST">
                 <div class="form-group">
                     <label>Select Payment Method:</label>
-                    <select id="payMethod" required>
+                    <select name="method" required>
                         <option value="">-- Select Method --</option>
                         <option value="Bkash">Bkash</option>
                         <option value="Nagad">Nagad</option>
@@ -198,22 +212,23 @@ app.get('/', (req, res) => {
                 </div>
                 <div class="form-group">
                     <label>Account / Wallet Number:</label>
-                    <input type="text" id="payNumber" placeholder="নাম্বার দিন..." required>
+                    <input type="text" name="number" placeholder="নাম্বার দিন..." required>
                 </div>
                 <div class="form-group">
                     <label>Amount (BDT):</label>
-                    <input type="number" id="payAmount" placeholder="পরিমাণ..." required>
+                    <input type="number" name="amount" placeholder="পরিমাণ..." required>
                 </div>
                 <button type="submit" class="submit-btn">Send Payment Request</button>
             </form>
         </div>
 
         <script>
-            let userBalance = 1250;
-            let currentValidCount = 0;
-            let hasClaimed = false;
+            let userBalance = ${userData.balance};
+            let currentClaimableUids = [];
+            let currentClaimableAmount = 0;
 
             const adminReportsData = ${JSON.stringify(adminReports)};
+            const claimedUidsStoreData = ${JSON.stringify(claimedUidsStore)};
             const categoryPrices = ${JSON.stringify(categories.reduce((acc, c) => ({...acc, [c.name]: c.price}), {}))};
 
             function toggleSidebar() {
@@ -227,16 +242,11 @@ app.get('/', (req, res) => {
                 element.classList.add('active');
                 toggleSidebar();
             }
-            function submitPayment(event) {
-                event.preventDefault();
-                alert("পেমেন্ট রিকোয়েস্ট পাঠানো হয়েছে!");
-                event.target.reset();
-            }
             function clearUserMatchResult() {
                 document.getElementById("matchResultBox").style.display = "none";
                 document.getElementById("matchedListContainer").innerHTML = "";
-                currentValidCount = 0;
-                hasClaimed = false;
+                currentClaimableUids = [];
+                currentClaimableAmount = 0;
             }
             function checkUserUids() {
                 const category = document.getElementById("userReportCategory").value;
@@ -246,40 +256,80 @@ app.get('/', (req, res) => {
 
                 const uids = rawText.split(/[\\n,]+/).map(u => u.trim()).filter(u => u.length > 0);
                 const validAdminUids = adminReportsData[category] || [];
+                const alreadyClaimedList = claimedUidsStoreData[category] || [];
+                const pricePerId = categoryPrices[category] || 0;
 
-                currentValidCount = 0;
+                currentClaimableUids = [];
+                currentClaimableAmount = 0;
                 let containerHtml = "";
 
                 uids.forEach(uid => {
-                    const isMatch = validAdminUids.includes(uid);
-                    if(isMatch) currentValidCount++;
-                    const bgColor = isMatch ? "rgba(16, 185, 129, 0.2)" : "rgba(244, 63, 94, 0.2)";
-                    const borderColor = isMatch ? "#10b981" : "#f43f5e";
-                    const textColor = isMatch ? "#34d399" : "#f87171";
-                    containerHtml += \`<div style="background: \${bgColor}; border: 1px solid \${borderColor}; color: \${textColor}; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 13px;">\${uid}</div>\`;
+                    const isValid = validAdminUids.includes(uid);
+                    const isClaimed = alreadyClaimedList.includes(uid);
+
+                    if(isValid && !isClaimed) {
+                        currentClaimableUids.push(uid);
+                        currentClaimableAmount += pricePerId;
+                    }
+
+                    let bgColor, borderColor, textColor, badgeText;
+                    if(isValid) {
+                        if(isClaimed) {
+                            bgColor = "rgba(100, 116, 139, 0.2)";
+                            borderColor = "#64748b";
+                            textColor = "#94a3b8";
+                            badgeText = " (Claimed)";
+                        } else {
+                            bgColor = "rgba(16, 185, 129, 0.2)";
+                            borderColor = "#10b981";
+                            textColor = "#34d399";
+                            badgeText = " (Valid)";
+                        }
+                    } else {
+                        bgColor = "rgba(244, 63, 94, 0.2)";
+                        borderColor = "#f43f5e";
+                        textColor = "#f87171";
+                        badgeText = " (Invalid)";
+                    }
+
+                    containerHtml += \`<div style="background: \${bgColor}; border: 1px solid \${borderColor}; color: \${textColor}; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 13px;">\${uid}\${badgeText}</div>\`;
                 });
 
                 document.getElementById("matchedListContainer").innerHTML = containerHtml;
                 document.getElementById("matchResultBox").style.display = "block";
 
                 const claimBtn = document.getElementById("claimBtn");
-                if(currentValidCount > 0 && !hasClaimed) {
+                if(currentClaimableUids.length > 0) {
                     claimBtn.style.display = "block";
-                    const pricePerId = categoryPrices[category] || 0;
-                    claimBtn.innerHTML = \`<i class="fa-solid fa-hand-holding-dollar"></i> Claim Reward (\${currentValidCount} Valid IDs = ৳\${currentValidCount * pricePerId})\`;
+                    claimBtn.innerHTML = \`<i class="fa-solid fa-hand-holding-dollar"></i> Claim Reward (\${currentClaimableUids.length} New Valid IDs = ৳\${currentClaimableAmount})\`;
                 } else {
                     claimBtn.style.display = "none";
                 }
             }
+
             function claimRewards() {
                 const category = document.getElementById("userReportCategory").value;
-                const pricePerId = categoryPrices[category] || 0;
-                const totalEarned = currentValidCount * pricePerId;
-                userBalance += totalEarned;
-                hasClaimed = true;
-                document.getElementById("userBalance").innerText = "💰 ৳" + userBalance;
-                document.getElementById("claimBtn").style.display = "none";
-                alert("সফলভাবে ৳" + totalEarned + " ব্যালেন্সে যোগ করা হয়েছে!");
+                if(currentClaimableUids.length === 0) return;
+
+                fetch('/claim-rewards', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category: category, uids: currentClaimableUids })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if(data.success) {
+                        userBalance = data.newBalance;
+                        document.getElementById("userBalance").innerText = "💰 ৳" + userBalance;
+                        alert("সফলভাবে ৳" + data.addedAmount + " ব্যালেন্সে যোগ করা হয়েছে!");
+                        // Update local store to show them as claimed
+                        if(!claimedUidsStoreData[category]) claimedUidsStoreData[category] = [];
+                        claimedUidsStoreData[category].push(...currentClaimableUids);
+                        checkUserUids(); // Refresh UI box view
+                    } else {
+                        alert(data.message || "ক্লেম করতে সমস্যা হয়েছে!");
+                    }
+                });
             }
         </script>
     </body>
@@ -297,6 +347,37 @@ app.post('/submit-id', (req, res) => {
             details: details,
             status: "Pending"
         });
+    }
+    res.redirect('/');
+});
+
+// Handle Claim Reward Endpoint
+app.post('/claim-rewards', (req, res) => {
+    const { category, uids } = req.body;
+    const pricePerId = categories.find(c => c.name === category)?.price || 0;
+    
+    if(!claimedUidsStore[category]) claimedUidsStore[category] = [];
+
+    let newValidUids = uids.filter(uid => !claimedUidsStore[category].includes(uid));
+    let earnedAmount = newValidUids.length * pricePerId;
+
+    if(earnedAmount > 0) {
+        claimedUidsStore[category].push(...newValidUids);
+        userData.balance += earnedAmount;
+        res.json({ success: true, newBalance: userData.balance, addedAmount: earnedAmount });
+    } else {
+        res.json({ success: false, message: "এই ইউআইডিগুলো ইতিমধ্যে ক্লেম করা হয়েছে!" });
+    }
+});
+
+// Handle Payment Request (Deduct from balance)
+app.post('/request-payment', (req, res) => {
+    const { method, number, amount } = req.body;
+    const reqAmount = parseFloat(amount);
+
+    if(reqAmount > 0 && reqAmount <= userData.balance) {
+        userData.balance -= reqAmount;
+        alert = "পেমেন্ট রিকোয়েস্ট সফল হয়েছে!";
     }
     res.redirect('/');
 });
@@ -342,6 +423,7 @@ app.post('/admin/add-category', (req, res) => {
     if (name && price) {
         if (!categories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
             categories.push({ name, price: parseFloat(price) });
+            if(!claimedUidsStore[name]) claimedUidsStore[name] = [];
         }
     }
     res.redirect('/admin');
@@ -358,7 +440,7 @@ app.get('/admin/delete-category/:name', (req, res) => {
 app.post('/admin/save-report', (req, res) => {
     const { category, uids } = req.body;
     if (category) {
-        const uidArray = uids ? uids.split(/[\\n,]+/).map(u => u.trim()).filter(u => u.length > 0) : [];
+        const uidArray = uids ? uids.split(/[\n,]+/).map(u => u.trim()).filter(u => u.length > 0) : [];
         adminReports[category] = uidArray;
     }
     res.redirect('/admin');
