@@ -40,11 +40,11 @@ let paymentRequests = [
     { id: 1, method: "Bkash", number: "01712345678", amount: 500, status: "Pending" }
 ];
 
-// User state container
-let userData = {
-    name: "রাহিম",
-    balance: 1250
-};
+// Users Database & Active Sessions simulation (Mock)
+let usersList = [
+    { name: "রাহিম", email: "rahim@gmail.com", telegram: "@rahim", username: "rahim123", password: "123", balance: 1250 }
+];
+let loggedInUserEmail = "rahim@gmail.com"; // Default active user for demo
 
 // Helper function: Fixed design for file box layout
 function formatAsFileBox(detailsText, itemId) {
@@ -67,8 +67,139 @@ function formatAsFileBox(detailsText, itemId) {
     return fileHtml;
 }
 
+// ================= AUTHENTICATION ROUTES (Register & Login) =================
+app.get('/auth', (req, res) => {
+    const mode = req.query.mode || 'login';
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="bn">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Account Access - Portal</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+            body { background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+            .auth-card { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.1); width: 100%; max-width: 420px; padding: 35px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); }
+            .brand-title { text-align: center; margin-bottom: 25px; }
+            .brand-title h2 { font-size: 24px; color: #38bdf8; font-weight: 700; margin-bottom: 6px; }
+            .brand-title p { font-size: 13px; color: #94a3b8; }
+            .form-group { margin-bottom: 18px; }
+            label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #cbd5e1; }
+            input { width: 100%; padding: 12px 14px; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; outline: none; font-size: 14px; }
+            input:focus { border-color: #38bdf8; }
+            .submit-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.3s; }
+            .submit-btn:hover { opacity: 0.9; }
+            .toggle-link { text-align: center; margin-top: 20px; font-size: 14px; color: #94a3b8; }
+            .toggle-link a { color: #38bdf8; text-decoration: none; font-weight: bold; }
+            .admin-link-box { text-align: center; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 15px; }
+            .admin-link-box a { color: #f43f5e; font-size: 13px; text-decoration: none; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <div class="auth-card">
+            <div class="brand-title">
+                <h2><i class="fa-solid fa-shield-halved"></i> ID Sell Portal</h2>
+                <p>${mode === 'register' ? 'নতুন অ্যাকাউন্ট তৈরি করুন' : 'আপনার অ্যাকাউন্টে লগইন করুন'}</p>
+            </div>
+
+            ${mode === 'register' ? `
+                <form action="/register" method="POST">
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-user"></i> Full Name:</label>
+                        <input type="text" name="name" placeholder="আপনার নাম লিখুন" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-envelope"></i> Gmail Address:</label>
+                        <input type="email" name="email" placeholder="example@gmail.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-brands fa-telegram"></i> Telegram Username:</label>
+                        <input type="text" name="telegram" placeholder="@username" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-at"></i> Username:</label>
+                        <input type="text" name="username" placeholder="ইউজারনেম দিন" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-lock"></i> Password:</label>
+                        <input type="password" name="password" placeholder="পাসওয়ার্ড দিন" required>
+                    </div>
+                    <button type="submit" class="submit-btn"><i class="fa-solid fa-user-plus"></i> Register Account</button>
+                </form>
+                <div class="toggle-link">
+                    ইতিমধ্যে অ্যাকাউন্ট আছে? <a href="/auth?mode=login">লগইন করুন</a>
+                </div>
+            ` : `
+                <form action="/login" method="POST">
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-envelope"></i> Gmail Address:</label>
+                        <input type="email" name="email" placeholder="আপনার রেজিস্টার্ড জিমেইল দিন" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-lock"></i> Password:</label>
+                        <input type="password" name="password" placeholder="পাসওয়ার্ড দিন" required>
+                    </div>
+                    <button type="submit" class="submit-btn"><i class="fa-solid fa-right-to-bracket"></i> Login Now</button>
+                </form>
+                <div class="toggle-link">
+                    অ্যাকাউন্ট নেই? <a href="/auth?mode=register">রেজিস্ট্রেশন করুন</a>
+                </div>
+            `}
+            <div class="admin-link-box">
+                <a href="#" onclick="openAdminLogin()"><i class="fa-solid fa-user-shield"></i> Go to Admin Panel</a>
+            </div>
+        </div>
+
+        <script>
+            function openAdminLogin() {
+                const pass = prompt("অ্যাডমিন প্যানেলে ঢুকতে পাসওয়ার্ড দিন:");
+                if(pass === "@NOYONVAI") {
+                    window.location.href = "/admin";
+                } else if(pass !== null) {
+                    alert("ভুল পাসওয়ার্ড! প্রবেশাধিকার সংরক্ষিত।");
+                }
+            }
+        </script>
+    </body>
+    </html>
+    `);
+});
+
+// Handle Registration Processing
+app.post('/register', (req, res) => {
+    const { name, email, telegram, username, password } = req.body;
+    
+    // Check if email or username already exists
+    const exists = usersList.find(u => u.email === email || u.username === username);
+    if(exists) {
+        return res.send(`<script>alert("এই জিমেইল অথবা ইউজারনেম দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট খোলা রয়েছে!"); window.location.href='/auth?mode=register';</script>`);
+    }
+
+    usersList.push({ name, email, telegram, username, password, balance: 0 });
+    loggedInUserEmail = email;
+    res.redirect('/');
+});
+
+// Handle Login Processing (Only Email & Password)
+app.post('/login', (req, res) => {
+    const { email, password } = req.body;
+    const user = usersList.find(u => u.email === email && u.password === password);
+
+    if(user) {
+        loggedInUserEmail = user.email;
+        res.redirect('/');
+    } else {
+        res.send(`<script>alert("ভুল জিমেইল অথবা পাসওয়ার্ড!"); window.location.href='/auth?mode=login';</script>`);
+    }
+});
+
+
 // ================= USER PANEL ROUTE =================
 app.get('/', (req, res) => {
+    const currentUser = usersList.find(u => u.email === loggedInUserEmail) || usersList[0];
+
     res.send(`
     <!DOCTYPE html>
     <html lang="bn">
@@ -84,6 +215,8 @@ app.get('/', (req, res) => {
             .menu-btn { background: none; border: none; color: #38bdf8; font-size: 22px; cursor: pointer; }
             .user-info { display: flex; align-items: center; gap: 20px; font-size: 15px; font-weight: 500; }
             .balance-box { background: linear-gradient(135deg, #10b981, #059669); padding: 6px 14px; border-radius: 20px; font-weight: bold; }
+            .logout-link { color: #f43f5e; text-decoration: none; font-size: 14px; font-weight: bold; background: rgba(244,63,94,0.1); padding: 5px 10px; border-radius: 6px; }
+            
             .sidebar { height: 100%; width: 260px; position: fixed; z-index: 101; top: 0; left: -260px; background-color: #0f172a; color: white; transition: 0.3s ease-in-out; padding-top: 20px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid rgba(255,255,255,0.05); }
             .sidebar-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
             .close-btn { background: none; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; }
@@ -92,9 +225,15 @@ app.get('/', (req, res) => {
             .sidebar-links li a:hover, .sidebar-links li a.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
             .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 13px; color: #94a3b8; }
             .sidebar-footer a { color: #38bdf8; text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+            
             .container { max-width: 900px; margin: 100px auto 40px auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; }
             .container.active-section { display: block; }
-            h2 { text-align: center; margin-bottom: 25px; color: #f8fafc; font-size: 26px; font-weight: 700; }
+            
+            /* Section Header Description styling */
+            .section-header-banner { text-align: center; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 15px; }
+            .section-header-banner h2 { color: #f8fafc; font-size: 26px; font-weight: 700; margin-bottom: 5px; }
+            .section-header-banner p { color: #38bdf8; font-size: 14px; font-weight: 500; }
+
             .form-group { margin-bottom: 20px; }
             label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #94a3b8; }
             select, input, textarea { width: 100%; padding: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-size: 15px; color: white; outline: none; }
@@ -115,8 +254,9 @@ app.get('/', (req, res) => {
         <div class="top-bar">
             <button class="menu-btn" onclick="toggleSidebar()"><i class="fa-solid fa-bars-staggered"></i></button>
             <div class="user-info">
-                <span>স্বাগতম, ${userData.name}!</span>
-                <div class="balance-box" id="userBalance">💰 ৳${userData.balance}</div>
+                <span>স্বাগতম, ${currentUser.name}!</span>
+                <div class="balance-box" id="userBalance">💰 ৳${currentUser.balance}</div>
+                <a href="/auth?mode=login" class="logout-link"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
             </div>
         </div>
 
@@ -127,9 +267,9 @@ app.get('/', (req, res) => {
                     <button class="close-btn" onclick="toggleSidebar()"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <ul class="sidebar-links">
-                    <li><a onclick="switchSection('homeSection', this)" class="active"><i class="fa-solid fa-house"></i> Home</a></li>
-                    <li><a onclick="switchSection('reportSection', this)"><i class="fa-solid fa-chart-line"></i> Report</a></li>
-                    <li><a onclick="switchSection('paymentSection', this)"><i class="fa-solid fa-wallet"></i> Payment</a></li>
+                    <li><a onclick="switchSection('homeSection', this)" class="active"><i class="fa-solid fa-house"></i> Home Dashboard</a></li>
+                    <li><a onclick="switchSection('reportSection', this)"><i class="fa-solid fa-chart-line"></i> Report & Claim</a></li>
+                    <li><a onclick="switchSection('paymentSection', this)"><i class="fa-solid fa-wallet"></i> Payment Request</a></li>
                 </ul>
             </div>
             <div class="sidebar-footer">
@@ -140,7 +280,10 @@ app.get('/', (req, res) => {
 
         <!-- Home Section -->
         <div id="homeSection" class="container active-section">
-            <h2>✨ Sell Your ID Securely ✨</h2>
+            <div class="section-header-banner">
+                <h2>✨ Secure ID Submission Dashboard ✨</h2>
+                <p>আপনার অ্যাকাউন্ট সুরক্ষিত রেখে খুব সহজেই গেম বা সোশ্যাল মিডিয়া আইডি জমা দিন।</p>
+            </div>
             <form action="/submit-id" method="POST">
                 <div class="form-group">
                     <label>Select Category:</label>
@@ -178,7 +321,10 @@ app.get('/', (req, res) => {
 
         <!-- Report Section -->
         <div id="reportSection" class="container">
-            <h2>📊 ID Report & Claim Box 📊</h2>
+            <div class="section-header-banner">
+                <h2>📊 ID Report & Instant Claim Box 📊</h2>
+                <p>আপনার দেওয়া UID গুলো চেক করুন এবং বৈধ আইডিগুলোর পেমেন্ট সাথে সাথে ব্যালেন্সে যোগ করুন।</p>
+            </div>
             <div class="form-group">
                 <label>Select Category:</label>
                 <select id="userReportCategory" onchange="clearUserMatchResult()">
@@ -201,7 +347,10 @@ app.get('/', (req, res) => {
 
         <!-- Payment Section -->
         <div id="paymentSection" class="container">
-            <h2>💳 Request Payment & History 💳</h2>
+            <div class="section-header-banner">
+                <h2>💳 Wallet & Payment Withdrawal 💳</h2>
+                <p>আপনার জমানো ব্যালেন্স বিকাশ, নগদ বা বাইন্যান্সের মাধ্যমে খুব দ্রুত উত্তোলন করুন।</p>
+            </div>
             <form action="/request-payment" method="POST">
                 <div class="form-group">
                     <label>Select Payment Method:</label>
@@ -245,7 +394,7 @@ app.get('/', (req, res) => {
         </div>
 
         <script>
-            let userBalance = ${userData.balance};
+            let userBalance = ${currentUser.balance};
             let currentClaimableUids = [];
             let currentClaimableAmount = 0;
 
@@ -376,6 +525,7 @@ app.post('/submit-id', (req, res) => {
 app.post('/claim-rewards', (req, res) => {
     const { category, uids } = req.body;
     const pricePerId = categories.find(c => c.name === category)?.price || 0;
+    const currentUser = usersList.find(u => u.email === loggedInUserEmail) || usersList[0];
     
     if(!claimedUidsStore[category]) claimedUidsStore[category] = [];
 
@@ -384,8 +534,8 @@ app.post('/claim-rewards', (req, res) => {
 
     if(earnedAmount > 0) {
         claimedUidsStore[category].push(...newValidUids);
-        userData.balance += earnedAmount;
-        res.json({ success: true, newBalance: userData.balance, addedAmount: earnedAmount });
+        currentUser.balance += earnedAmount;
+        res.json({ success: true, newBalance: currentUser.balance, addedAmount: earnedAmount });
     } else {
         res.json({ success: false, message: "এই ইউআইডিগুলো ইতিমধ্যে ক্লেম করা হয়েছে!" });
     }
@@ -395,9 +545,10 @@ app.post('/claim-rewards', (req, res) => {
 app.post('/request-payment', (req, res) => {
     const { method, number, amount } = req.body;
     const reqAmount = parseFloat(amount);
+    const currentUser = usersList.find(u => u.email === loggedInUserEmail) || usersList[0];
 
-    if(reqAmount > 0 && reqAmount <= userData.balance) {
-        userData.balance -= reqAmount;
+    if(reqAmount > 0 && reqAmount <= currentUser.balance) {
+        currentUser.balance -= reqAmount;
         paymentRequests.push({
             id: paymentRequests.length > 0 ? paymentRequests[paymentRequests.length - 1].id + 1 : 1,
             method: method,
@@ -521,7 +672,11 @@ app.get('/admin', (req, res) => {
             
             .container { max-width: 950px; margin: 100px auto 40px auto; background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; }
             .container.active-section { display: block; }
-            h2 { text-align: center; margin-bottom: 25px; color: #38bdf8; font-size: 26px; font-weight: 700; }
+            
+            .section-header-banner { text-align: center; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 15px; }
+            .section-header-banner h2 { color: #38bdf8; font-size: 26px; font-weight: 700; margin-bottom: 5px; }
+            .section-header-banner p { color: #94a3b8; font-size: 14px; font-weight: 500; }
+
             .form-group { margin-bottom: 20px; }
             label { display: block; margin-bottom: 8px; font-weight: 600; color: #94a3b8; font-size: 14px; }
             input, select, textarea { width: 100%; padding: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; outline: none; font-size: 15px; }
@@ -563,7 +718,10 @@ app.get('/admin', (req, res) => {
 
         <!-- 1. Payment Requests Section -->
         <div id="paymentSection" class="container active-section">
-            <h2>💳 User Payment Requests 💳</h2>
+            <div class="section-header-banner">
+                <h2>💳 User Payment Requests Management 💳</h2>
+                <p>ইউজারদের পাঠানো পেমেন্ট রিকোয়েস্টগুলো যাচাই করুন এবং টাকা পাঠিয়ে সাকসেস করুন।</p>
+            </div>
             <table class="sheet-table">
                 <thead>
                     <tr>
@@ -597,7 +755,10 @@ app.get('/admin', (req, res) => {
 
         <!-- 2. Category & Price Section -->
         <div id="categorySection" class="container">
-            <h2>📁 Manage Category & Price 📁</h2>
+            <div class="section-header-banner">
+                <h2>📁 Manage Categories & Pricing 📁</h2>
+                <p>নতুন ক্যাটাগরি যুক্ত করুন এবং প্রতিটি আইডির মূল্য নির্ধারণ করুন।</p>
+            </div>
             <form action="/admin/add-category" method="POST">
                 <div class="form-group">
                     <label>Category Name:</label>
@@ -625,7 +786,10 @@ app.get('/admin', (req, res) => {
 
         <!-- 3. Valid UIDs Setup Section -->
         <div id="reportSetSection" class="container">
-            <h2>📊 Set Valid UIDs for Reports 📊</h2>
+            <div class="section-header-banner">
+                <h2>📊 Set Valid UIDs for User Claims 📊</h2>
+                <p>রিপোর্টের জন্য বৈধ ইউআইডি লিস্ট সেট করুন যা ইউজাররা চেক ও ক্লেম করতে পারবে।</p>
+            </div>
             <form action="/admin/save-report" method="POST">
                 <div class="form-group">
                     <label>Select Category:</label>
@@ -644,7 +808,10 @@ app.get('/admin', (req, res) => {
 
         <!-- 4. Submitted IDs Section -->
         <div id="idsSection" class="container">
-            <h2>📋 Submitted IDs (Google Sheet View) 📋</h2>
+            <div class="section-header-banner">
+                <h2>📋 Submitted IDs Management (Sheet View) 📋</h2>
+                <p>ইউজারদের সাবমিট করা অ্যাকাউন্ট ডিটেইলস ফাইলের মতো দেখুন ও ডাউনলোড করুন।</p>
+            </div>
             <div class="form-group">
                 <label>Filter Submitted IDs by Category:</label>
                 <select id="filterCategory" onchange="filterByCategory(this.value)">
