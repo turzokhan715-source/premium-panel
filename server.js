@@ -27,7 +27,7 @@ let adminReports = {
     "Facebook": ["FB999", "FB888"]
 };
 
-// Track already claimed UIDs globally per category to prevent double claiming
+// Track already claimed UIDs globally per category
 let claimedUidsStore = {
     "Free Fire": [],
     "Facebook": [],
@@ -35,7 +35,12 @@ let claimedUidsStore = {
     "Page": []
 };
 
-// User state container (for single test user session)
+// Payment requests array
+let paymentRequests = [
+    { id: 1, method: "Bkash", number: "01712345678", amount: 500, status: "Pending" }
+];
+
+// User state container
 let userData = {
     name: "রাহিম",
     balance: 1250
@@ -158,7 +163,7 @@ app.get('/', (req, res) => {
                     <thead>
                         <tr><th style="width: 120px;">Category</th><th>Details (File View)</th><th style="width: 100px;">Status</th><th style="width: 80px;">Action</th></tr>
                     </thead>
-                    <tbody id="historyTable">
+                    <tbody>
                         ${submittedIds.map(item => `
                             <tr>
                                 <td><b>${item.category}</b></td>
@@ -198,7 +203,7 @@ app.get('/', (req, res) => {
 
         <!-- Payment Section -->
         <div id="paymentSection" class="container">
-            <h2>💳 Request Payment 💳</h2>
+            <h2>💳 Request Payment & History 💳</h2>
             <form action="/request-payment" method="POST">
                 <div class="form-group">
                     <label>Select Payment Method:</label>
@@ -220,6 +225,25 @@ app.get('/', (req, res) => {
                 </div>
                 <button type="submit" class="submit-btn">Send Payment Request</button>
             </form>
+
+            <div class="history-section">
+                <h3>Payment History</h3>
+                <table>
+                    <thead>
+                        <tr><th>Method</th><th>Account Number</th><th>Amount</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                        ${paymentRequests.length > 0 ? paymentRequests.map(pay => `
+                            <tr>
+                                <td><b>${pay.method}</b></td>
+                                <td>${pay.number}</td>
+                                <td>৳${pay.amount}</td>
+                                <td><span class="${pay.status === 'Success' ? 'badge-success' : 'badge-pending'}">${pay.status}</span></td>
+                            </tr>
+                        `).join('') : `<tr><td colspan="4" style="text-align: center; color: #94a3b8; padding: 15px;">কোনো পেমেন্ট হিস্ট্রি নেই!</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <script>
@@ -322,10 +346,9 @@ app.get('/', (req, res) => {
                         userBalance = data.newBalance;
                         document.getElementById("userBalance").innerText = "💰 ৳" + userBalance;
                         alert("সফলভাবে ৳" + data.addedAmount + " ব্যালেন্সে যোগ করা হয়েছে!");
-                        // Update local store to show them as claimed
                         if(!claimedUidsStoreData[category]) claimedUidsStoreData[category] = [];
                         claimedUidsStoreData[category].push(...currentClaimableUids);
-                        checkUserUids(); // Refresh UI box view
+                        checkUserUids();
                     } else {
                         alert(data.message || "ক্লেম করতে সমস্যা হয়েছে!");
                     }
@@ -370,19 +393,25 @@ app.post('/claim-rewards', (req, res) => {
     }
 });
 
-// Handle Payment Request (Deduct from balance)
+// Handle Payment Request (Deduct from balance and save to history)
 app.post('/request-payment', (req, res) => {
     const { method, number, amount } = req.body;
     const reqAmount = parseFloat(amount);
 
     if(reqAmount > 0 && reqAmount <= userData.balance) {
         userData.balance -= reqAmount;
-        alert = "পেমেন্ট রিকোয়েস্ট সফল হয়েছে!";
+        paymentRequests.push({
+            id: paymentRequests.length > 0 ? paymentRequests[paymentRequests.length - 1].id + 1 : 1,
+            method: method,
+            number: number,
+            amount: reqAmount,
+            status: "Pending"
+        });
     }
     res.redirect('/');
 });
 
-// Handle Delete ID (Sync for both)
+// Handle Delete ID
 app.get('/delete/:id', (req, res) => {
     const id = parseInt(req.params.id);
     submittedIds = submittedIds.filter(s => s.id !== id);
@@ -407,12 +436,22 @@ app.get('/admin/download/:id', (req, res) => {
     }
 });
 
-// Handle Admin Status Update to Success
+// Handle Admin Status Update to Success (Submitted IDs)
 app.post('/admin/update-status/:id', (req, res) => {
     const id = parseInt(req.params.id);
     const item = submittedIds.find(s => s.id === id);
     if(item) {
         item.status = "Success";
+    }
+    res.redirect('/admin');
+});
+
+// Handle Admin Payment Request Status Update to Success
+app.post('/admin/update-payment/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    const payment = paymentRequests.find(p => p.id === id);
+    if(payment) {
+        payment.status = "Success";
     }
     res.redirect('/admin');
 });
@@ -472,8 +511,8 @@ app.get('/admin', (req, res) => {
             textarea { resize: vertical; height: 100px; }
             .submit-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; }
             .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; font-size: 12px; }
-            .success-btn { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 12px; border-radius: 6px; cursor: default; font-weight: 600; }
-            .received-btn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+            .success-btn { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 12px; border-radius: 6px; cursor: default; font-weight: 600; font-size: 12px; }
+            .received-btn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; }
             .sheet-table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 6px; overflow: hidden; margin-top: 15px; }
             .sheet-table th { background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 12px; }
             .sheet-table td { border: 1px solid #334155; padding: 12px; color: #e2e8f0; vertical-align: middle; }
@@ -483,7 +522,39 @@ app.get('/admin', (req, res) => {
     <body>
         <div class="container">
             <a href="/" class="back-link"><i class="fa-solid fa-arrow-left"></i> Go to User Panel</a>
-            <h2>🛡️ Admin Management & Report Panel 🛡️</h2>
+            <h2>🛡️ Admin Management & Payment Panel 🛡️</h2>
+
+            <!-- Payment Requests Management Section -->
+            <div style="background: rgba(15, 23, 42, 0.4); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 25px;">
+                <h3 style="color: #38bdf8; margin-bottom: 15px; font-size: 18px;"><i class="fa-solid fa-wallet"></i> User Payment Requests</h3>
+                <table class="sheet-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">SL</th>
+                            <th>Method</th>
+                            <th>Account Number</th>
+                            <th>Amount</th>
+                            <th style="width: 110px;">Action Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${paymentRequests.length > 0 ? paymentRequests.map((pay, idx) => `
+                            <tr>
+                                <td>${idx + 1}</td>
+                                <td><b>${pay.method}</b></td>
+                                <td>${pay.number}</td>
+                                <td style="color: #10b981; font-weight: bold;">৳${pay.amount}</td>
+                                <td>
+                                    ${pay.status === 'Success' 
+                                        ? `<button class="success-btn">Success ✓</button>`
+                                        : `<form action="/admin/update-payment/${pay.id}" method="POST"><button type="submit" class="received-btn">Send Money</button></form>`
+                                    }
+                                </td>
+                            </tr>
+                        `).join('') : `<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 15px;">কোনো পেমেন্ট রিকোয়েস্ট নেই!</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
 
             <!-- Add Category & Price Form -->
             <div style="background: rgba(15, 23, 42, 0.4); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 25px;">
@@ -542,7 +613,7 @@ app.get('/admin', (req, res) => {
                 </select>
             </div>
 
-            <!-- Google Sheet Format Submitted IDs View -->
+            <!-- Submitted IDs View -->
             <div style="margin-top: 30px;">
                 <h3 style="color: #cbd5e1; margin-bottom: 15px;"><i class="fa-solid fa-table"></i> Submitted IDs (Google Sheet View)</h3>
                 <table class="sheet-table">
@@ -555,7 +626,7 @@ app.get('/admin', (req, res) => {
                             <th style="width: 80px;">Action</th>
                         </tr>
                     </thead>
-                    <tbody id="adminTableBody">
+                    <tbody>
                         ${filteredIds.length > 0 ? filteredIds.map((item, idx) => `
                             <tr>
                                 <td>${idx + 1}</td>
@@ -563,8 +634,8 @@ app.get('/admin', (req, res) => {
                                 <td style="text-align: left; padding: 10px;">${formatAsFileBox(item.details, item.id)}</td>
                                 <td>
                                     ${item.status === 'Success' 
-                                        ? `<button class="success-btn" style="padding: 6px 12px; font-size: 12px;">Success ✓</button>`
-                                        : `<form action="/admin/update-status/${item.id}" method="POST"><button type="submit" class="received-btn" style="padding: 6px 12px; font-size: 12px;">Received</button></form>`
+                                        ? `<button class="success-btn">Success ✓</button>`
+                                        : `<form action="/admin/update-status/${item.id}" method="POST"><button type="submit" class="received-btn">Received</button></form>`
                                     }
                                 </td>
                                 <td><a href="/delete/${item.id}" class="delete-btn">Delete</a></td>
