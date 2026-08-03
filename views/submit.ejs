@@ -1,1 +1,100 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Submit Request - Premium Panel</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+
+<div class="panel">
+
+    <h2>Submit Request</h2>
+
+
+    <form id="submitForm">
+
+
+        <input
+        type="text"
+        name="title"
+        placeholder="Request Title"
+        required>
+
+
+        <textarea
+        name="details"
+        placeholder="Write details..."
+        required></textarea>
+
+
+        <button type="submit">
+            Submit
+        </button>
+
+
+    </form>
+
+
+    <a href="/dashboard">
+        Back Dashboard
+    </a>
+
+
+</div>
+
+
+
+<script>
+
+document.getElementById("submitForm")
+.addEventListener("submit", async(e)=>{
+
+
+    e.preventDefault();
+
+
+    const data={
+
+        title:e.target.title.value,
+
+        details:e.target.details.value
+
+    };
+
+
+    const res = await fetch("/submit",{
+
+        method:"POST",
+
+        headers:{
+            "Content-Type":"application/json"
+        },
+
+        body:JSON.stringify(data)
+
+    });
+
+
+    const result = await res.json();
+
+
+    alert(result.message);
+
+
+    if(result.success){
+
+        location.href="/dashboard";
+
+    }
+
+
+});
+
+
+</script>
+
+
+</body>
+</html>
