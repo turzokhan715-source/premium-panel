@@ -14,14 +14,36 @@ let categories = [
 ];
 
 let submittedIds = [
-    { id: 1, category: "Free Fire", details: "Level 72, Pass: xyz123", status: "Pending" },
-    { id: 2, category: "Facebook", details: "5k Followers, Link: fb.com/...", status: "Pending" }
+    { 
+        id: 1, 
+        category: "Free Fire", 
+        details: "61592277435372 Turzokhan29 ps_n=1; sb=LmRpana1Fv0_kZlIrS3uC0Db;\n61592319103567 Turzokhan29 fr=0ArvGMvmkcliTdRU7.AWd6g0EqJYuVMWnFqrhoisV0rmrbjLbA6q_eKtlPx", 
+        status: "Pending" 
+    }
 ];
 
 let adminReports = {
     "Free Fire": ["UID101", "UID102", "UID103"],
     "Facebook": ["FB999", "FB888"]
 };
+
+// Helper function to render file-style text box (Like 2nd picture)
+function formatAsFileBox(detailsText) {
+    const lines = detailsText.split('\n').filter(line => line.trim() !== '');
+    let fileHtml = `<div style="background: #0f172a; border: 1px solid #334155; border-radius: 6px; text-align: left; max-height: 180px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 12px; display: flex;">`;
+    
+    // Line numbers column
+    fileHtml += `<div style="background: #1e293b; color: #64748b; padding: 8px 10px; user-select: none; border-right: 1px solid #334155; text-align: right;">`;
+    lines.forEach((_, idx) => { fileHtml += `<div>${idx + 1}</div>`; });
+    fileHtml += `</div>`;
+
+    // Content lines column
+    fileHtml += `<div style="padding: 8px 12px; color: #e2e8f0; white-space: pre-wrap; word-break: break-all; flex-grow: 1;">`;
+    lines.forEach(line => { fileHtml += `<div>${line}</div>`; });
+    fileHtml += `</div></div>`;
+
+    return fileHtml;
+}
 
 // ================= USER PANEL ROUTE =================
 app.get('/', (req, res) => {
@@ -51,7 +73,7 @@ app.get('/', (req, res) => {
             .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
             .sidebar-footer a { color: #f43f5e; text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer; }
 
-            .container { max-width: 750px; margin: 100px auto 40px auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; }
+            .container { max-width: 850px; margin: 100px auto 40px auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; }
             .container.active-section { display: block; }
             
             h2 { text-align: center; margin-bottom: 25px; color: #f8fafc; font-size: 26px; font-weight: 700; }
@@ -66,7 +88,7 @@ app.get('/', (req, res) => {
             .history-section { margin-top: 40px; }
             .history-section h3 { font-size: 20px; margin-bottom: 15px; color: #cbd5e1; }
             table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
-            th, td { padding: 14px; text-align: center; font-size: 14px; }
+            th, td { padding: 14px; text-align: center; font-size: 14px; vertical-align: middle; }
             th { background: rgba(15, 23, 42, 0.8); color: #38bdf8; font-weight: 600; }
             td { background: rgba(30, 41, 59, 0.4); border-bottom: 1px solid rgba(255,255,255,0.05); color: #e2e8f0; }
             .badge-pending { background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
@@ -122,13 +144,13 @@ app.get('/', (req, res) => {
                 <h3>My Submissions History</h3>
                 <table>
                     <thead>
-                        <tr><th>Category</th><th>Details</th><th>Status</th><th>Action</th></tr>
+                        <tr><th style="width: 130px;">Category</th><th>Details (File View)</th><th style="width: 100px;">Status</th><th style="width: 80px;">Action</th></tr>
                     </thead>
                     <tbody id="historyTable">
                         ${submittedIds.map(item => `
                             <tr>
-                                <td>${item.category}</td>
-                                <td>${item.details}</td>
+                                <td><b>${item.category}</b></td>
+                                <td style="text-align: left;">${formatAsFileBox(item.details)}</td>
                                 <td><span class="${item.status === 'Success' ? 'badge-success' : 'badge-pending'}">${item.status}</span></td>
                                 <td><button class="delete-btn" onclick="this.parentElement.parentElement.remove()">Delete</button></td>
                             </tr>
@@ -317,7 +339,7 @@ app.get('/admin', (req, res) => {
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
             body { background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; min-height: 100vh; padding: 40px 20px; }
-            .container { max-width: 900px; margin: 0 auto; background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+            .container { max-width: 950px; margin: 0 auto; background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
             h2 { text-align: center; margin-bottom: 25px; color: #38bdf8; font-size: 28px; }
             .form-group { margin-bottom: 20px; }
             label { display: block; margin-bottom: 8px; font-weight: 600; color: #94a3b8; }
@@ -327,12 +349,12 @@ app.get('/admin', (req, res) => {
             
             .cat-tag-admin { display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.5); padding: 12px 15px; margin-bottom: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
             .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-            .success-btn { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: default; }
+            .success-btn { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 12px; border-radius: 6px; cursor: default; font-weight: 600; }
             .received-btn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
             
             .sheet-table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 6px; overflow: hidden; margin-top: 15px; }
             .sheet-table th { background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 12px; }
-            .sheet-table td { border: 1px solid #334155; padding: 12px; color: #e2e8f0; }
+            .sheet-table td { border: 1px solid #334155; padding: 12px; color: #e2e8f0; vertical-align: middle; }
             .back-link { display: inline-block; margin-bottom: 20px; color: #38bdf8; text-decoration: none; font-weight: bold; }
         </style>
     </head>
@@ -387,9 +409,9 @@ app.get('/admin', (req, res) => {
                     <thead>
                         <tr>
                             <th style="width: 60px;">SL</th>
-                            <th style="width: 150px;">Category</th>
-                            <th>Account Details</th>
-                            <th style="width: 120px;">Status Action</th>
+                            <th style="width: 130px;">Category</th>
+                            <th>Account Details (File View)</th>
+                            <th style="width: 110px;">Status Action</th>
                             <th style="width: 80px;">Action</th>
                         </tr>
                     </thead>
@@ -398,7 +420,7 @@ app.get('/admin', (req, res) => {
                             <tr>
                                 <td>${idx + 1}</td>
                                 <td><b style="color: #38bdf8;">${item.category}</b></td>
-                                <td>${item.details}</td>
+                                <td style="text-align: left;">${formatAsFileBox(item.details)}</td>
                                 <td>
                                     ${item.status === 'Success' 
                                         ? `<button class="success-btn" style="padding: 6px 12px; font-size: 12px;">Success ✓</button>`
