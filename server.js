@@ -27,25 +27,21 @@ let adminReports = {
     "Facebook": ["FB999", "FB888"]
 };
 
-// Helper function: Fixed design so text wraps inside box and doesn't overflow
+// Helper function: Fixed design for file box layout
 function formatAsFileBox(detailsText, itemId) {
     const lines = detailsText.split('\n').filter(line => line.trim() !== '');
     let fileHtml = `<div style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 450px;">`;
     
-    // File Box View with text wrapping enabled
     fileHtml += `<div style="background: #0f172a; border: 1px solid #334155; border-radius: 6px; text-align: left; max-height: 150px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 11px; display: flex;">`;
     
-    // Line numbers column
     fileHtml += `<div style="background: #1e293b; color: #64748b; padding: 8px 8px; user-select: none; border-right: 1px solid #334155; text-align: right;">`;
     lines.forEach((_, idx) => { fileHtml += `<div>${idx + 1}</div>`; });
     fileHtml += `</div>`;
 
-    // Content lines column with word break to prevent overflow
     fileHtml += `<div style="padding: 8px 10px; color: #e2e8f0; white-space: pre-wrap; word-break: break-all; flex-grow: 1;">`;
     lines.forEach(line => { fileHtml += `<div>${line}</div>`; });
     fileHtml += `</div></div>`;
 
-    // Download Button
     fileHtml += `<a href="/admin/download/${itemId}" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.4); padding: 5px 10px; border-radius: 5px; font-size: 12px; text-decoration: none; font-weight: bold; width: fit-content;"><i class="fa-solid fa-download"></i> Download File (.txt)</a>`;
     
     fileHtml += `</div>`;
@@ -63,14 +59,12 @@ app.get('/', (req, res) => {
         <title>Premium ID Sell Panel - User</title>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; }
+            * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
             body { background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; min-height: 100vh; }
-            
             .top-bar { background: rgba(30, 41, 59, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.1); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; position: fixed; top: 0; left: 0; width: 100%; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
             .menu-btn { background: none; border: none; color: #38bdf8; font-size: 22px; cursor: pointer; }
             .user-info { display: flex; align-items: center; gap: 20px; font-size: 15px; font-weight: 500; }
             .balance-box { background: linear-gradient(135deg, #10b981, #059669); padding: 6px 14px; border-radius: 20px; font-weight: bold; }
-
             .sidebar { height: 100%; width: 260px; position: fixed; z-index: 101; top: 0; left: -260px; background-color: #0f172a; color: white; transition: 0.3s ease-in-out; padding-top: 20px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid rgba(255,255,255,0.05); }
             .sidebar-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
             .close-btn { background: none; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; }
@@ -79,19 +73,14 @@ app.get('/', (req, res) => {
             .sidebar-links li a:hover, .sidebar-links li a.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
             .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
             .sidebar-footer a { color: #f43f5e; text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer; }
-
             .container { max-width: 900px; margin: 100px auto 40px auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; }
             .container.active-section { display: block; }
-            
             h2 { text-align: center; margin-bottom: 25px; color: #f8fafc; font-size: 26px; font-weight: 700; }
             .form-group { margin-bottom: 20px; }
             label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #94a3b8; }
             select, input, textarea { width: 100%; padding: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-size: 15px; color: white; outline: none; }
             textarea { resize: vertical; height: 120px; }
-
             .submit-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-            .submit-btn:hover { background: linear-gradient(135deg, #0284c7, #0369a1); }
-
             .history-section { margin-top: 40px; }
             .history-section h3 { font-size: 20px; margin-bottom: 15px; color: #cbd5e1; }
             table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
@@ -101,6 +90,7 @@ app.get('/', (req, res) => {
             .badge-pending { background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
             .badge-success { background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
             .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; text-decoration: none; display: inline-block; }
+            .admin-link-btn { display: block; text-align: center; margin-top: 25px; color: #38bdf8; text-decoration: none; font-size: 14px; font-weight: bold; }
         </style>
     </head>
     <body>
@@ -125,6 +115,7 @@ app.get('/', (req, res) => {
                 </ul>
             </div>
             <div class="sidebar-footer">
+                <a href="/admin"><i class="fa-solid fa-shield-halved"></i> Admin Panel</a>
                 <a onclick="alert('লগআউট সফল হয়েছে!')"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
             </div>
         </div>
@@ -165,6 +156,7 @@ app.get('/', (req, res) => {
                     </tbody>
                 </table>
             </div>
+            <a href="/admin" class="admin-link-btn">👉 Go to Admin Management Panel</a>
         </div>
 
         <!-- Report Section -->
@@ -240,26 +232,17 @@ app.get('/', (req, res) => {
                 alert("পেমেন্ট রিকোয়েস্ট পাঠানো হয়েছে!");
                 event.target.reset();
             }
-
             function clearUserMatchResult() {
                 document.getElementById("matchResultBox").style.display = "none";
                 document.getElementById("matchedListContainer").innerHTML = "";
                 currentValidCount = 0;
                 hasClaimed = false;
             }
-
             function checkUserUids() {
                 const category = document.getElementById("userReportCategory").value;
                 const rawText = document.getElementById("userUidsInput").value;
-                
-                if(!category) {
-                    alert("দয়া করে ক্যাটাগরি সিলেক্ট করুন!");
-                    return;
-                }
-                if(!rawText.trim()) {
-                    alert("দয়া করে UID ইনপুট দিন!");
-                    return;
-                }
+                if(!category) { alert("দয়া করে ক্যাটাগরি সিলেক্ট করুন!"); return; }
+                if(!rawText.trim()) { alert("দয়া করে UID ইনপুট দিন!"); return; }
 
                 const uids = rawText.split(/[\\n,]+/).map(u => u.trim()).filter(u => u.length > 0);
                 const validAdminUids = adminReportsData[category] || [];
@@ -270,11 +253,9 @@ app.get('/', (req, res) => {
                 uids.forEach(uid => {
                     const isMatch = validAdminUids.includes(uid);
                     if(isMatch) currentValidCount++;
-
                     const bgColor = isMatch ? "rgba(16, 185, 129, 0.2)" : "rgba(244, 63, 94, 0.2)";
                     const borderColor = isMatch ? "#10b981" : "#f43f5e";
                     const textColor = isMatch ? "#34d399" : "#f87171";
-
                     containerHtml += \`<div style="background: \${bgColor}; border: 1px solid \${borderColor}; color: \${textColor}; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 13px;">\${uid}</div>\`;
                 });
 
@@ -290,15 +271,12 @@ app.get('/', (req, res) => {
                     claimBtn.style.display = "none";
                 }
             }
-
             function claimRewards() {
                 const category = document.getElementById("userReportCategory").value;
                 const pricePerId = categoryPrices[category] || 0;
                 const totalEarned = currentValidCount * pricePerId;
-
                 userBalance += totalEarned;
                 hasClaimed = true;
-
                 document.getElementById("userBalance").innerText = "💰 ৳" + userBalance;
                 document.getElementById("claimBtn").style.display = "none";
                 alert("সফলভাবে ৳" + totalEarned + " ব্যালেন্সে যোগ করা হয়েছে!");
@@ -381,13 +359,9 @@ app.get('/admin', (req, res) => {
             .form-group { margin-bottom: 20px; }
             label { display: block; margin-bottom: 8px; font-weight: 600; color: #94a3b8; }
             input, select, textarea { width: 100%; padding: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; outline: none; }
-            textarea { height: 100px; resize: vertical; }
-            .submit-btn { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
-            
             .delete-btn { background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; font-size: 12px; }
             .success-btn { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 12px; border-radius: 6px; cursor: default; font-weight: 600; }
             .received-btn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-            
             .sheet-table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 6px; overflow: hidden; margin-top: 15px; }
             .sheet-table th { background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 12px; }
             .sheet-table td { border: 1px solid #334155; padding: 12px; color: #e2e8f0; vertical-align: middle; }
@@ -410,10 +384,7 @@ app.get('/admin', (req, res) => {
 
             <!-- Google Sheet Format Submitted IDs View -->
             <div style="margin-top: 30px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="color: #cbd5e1;"><i class="fa-solid fa-table"></i> Submitted IDs (Google Sheet View)</h3>
-                </div>
-                
+                <h3 style="color: #cbd5e1; margin-bottom: 15px;"><i class="fa-solid fa-table"></i> Submitted IDs (Google Sheet View)</h3>
                 <table class="sheet-table">
                     <thead>
                         <tr>
