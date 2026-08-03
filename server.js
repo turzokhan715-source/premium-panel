@@ -5,7 +5,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// In-Memory Database
+// In-Memory Database (সব ডেমো ডাটা মুছে ব্ল্যাংক করে দেওয়া হয়েছে)
 let categories = [
     { name: "Free Fire", price: 50 },
     { name: "Facebook", price: 100 },
@@ -13,38 +13,16 @@ let categories = [
     { name: "Page", price: 200 }
 ];
 
-let submittedIds = [
-    { 
-        id: 1, 
-        userEmail: "rahim@gmail.com",
-        category: "Free Fire", 
-        details: "61592277435372 Turzokhan29 ps_n=1; sb=LmRpana1Fv0_kZlIrS3uC0Db;", 
-        status: "Pending" 
-    }
-];
-
-let adminReports = {
-    "Free Fire": ["61592277435372", "61592319103567", "61592730895703"],
-    "Facebook": ["FB999", "FB888"]
-};
-
-// Track already claimed UIDs globally per category
+let submittedIds = []; // সম্পূর্ণ খালি
+let adminReports = {}; // সম্পূর্ণ খালি
 let claimedUidsStore = {
     "Free Fire": [],
     "Facebook": [],
     "Gmail": [],
     "Page": []
 };
-
-// Payment requests array
-let paymentRequests = [
-    { id: 1, userEmail: "rahim@gmail.com", method: "Bkash", number: "01712345678", amount: 500, status: "Pending" }
-];
-
-// Users Database
-let usersList = [
-    { name: "রাহিম", email: "rahim@gmail.com", telegram: "@rahim", username: "rahim123", password: "123", balance: 1250 }
-];
+let paymentRequests = []; // সম্পূর্ণ খালি
+let usersList = []; // সম্পূর্ণ খালি
 
 // Helper function: Fixed design for file box layout
 function formatAsFileBox(detailsText, itemId) {
@@ -181,7 +159,7 @@ app.post('/register', (req, res) => {
     res.redirect(`/auth?mode=login`);
 });
 
-// Handle Login Processing (Query param to track logged in user)
+// Handle Login Processing 
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
     const user = usersList.find(u => u.email === email && u.password === password);
@@ -196,8 +174,19 @@ app.post('/login', (req, res) => {
 
 // ================= USER PANEL ROUTE =================
 app.get('/', (req, res) => {
-    const userEmailQuery = req.query.user || usersList[0].email;
-    const currentUser = usersList.find(u => u.email === userEmailQuery) || usersList[0];
+    const userEmailQuery = req.query.user;
+    
+    // নতুন সিকিউরিটি: লিংকে ইউজার না থাকলে সরাসরি লগইন পেজে পাঠাবে
+    if(!userEmailQuery) {
+        return res.redirect('/auth?mode=login');
+    }
+
+    const currentUser = usersList.find(u => u.email === userEmailQuery);
+    
+    // ডাটাবেসে ইউজার না থাকলেও লগইন পেজে পাঠাবে
+    if(!currentUser) {
+        return res.redirect('/auth?mode=login');
+    }
 
     // Filter submissions and payment requests for THIS user only
     const userSubmissions = submittedIds.filter(item => item.userEmail === currentUser.email);
