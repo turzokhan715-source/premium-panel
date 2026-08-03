@@ -16,8 +16,9 @@ let categories = [
 let submittedIds = [
     { 
         id: 1, 
+        userEmail: "rahim@gmail.com",
         category: "Free Fire", 
-        details: "61592277435372 Turzokhan29 ps_n=1; sb=LmRpana1Fv0_kZlIrS3uC0Db;\n61592319103567 Turzokhan29 fr=0ArvGMvmkcliTdRU7.AWd6g0EqJYuVMWnFqrhoisV0rmrbjLbA6q_eKtlPx", 
+        details: "61592277435372 Turzokhan29 ps_n=1; sb=LmRpana1Fv0_kZlIrS3uC0Db;", 
         status: "Pending" 
     }
 ];
@@ -37,14 +38,13 @@ let claimedUidsStore = {
 
 // Payment requests array
 let paymentRequests = [
-    { id: 1, method: "Bkash", number: "01712345678", amount: 500, status: "Pending" }
+    { id: 1, userEmail: "rahim@gmail.com", method: "Bkash", number: "01712345678", amount: 500, status: "Pending" }
 ];
 
-// Users Database & Active Sessions simulation (Mock)
+// Users Database
 let usersList = [
     { name: "রাহিম", email: "rahim@gmail.com", telegram: "@rahim", username: "rahim123", password: "123", balance: 1250 }
 ];
-let loggedInUserEmail = "rahim@gmail.com"; // Default active user for demo
 
 // Helper function: Fixed design for file box layout
 function formatAsFileBox(detailsText, itemId) {
@@ -167,29 +167,27 @@ app.get('/auth', (req, res) => {
     `);
 });
 
-// Handle Registration Processing
+// Handle Registration Processing (Duplicate Check & 0 Balance)
 app.post('/register', (req, res) => {
     const { name, email, telegram, username, password } = req.body;
     
-    // Check if email or username already exists
     const exists = usersList.find(u => u.email === email || u.username === username);
     if(exists) {
         return res.send(`<script>alert("এই জিমেইল অথবা ইউজারনেম দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট খোলা রয়েছে!"); window.location.href='/auth?mode=register';</script>`);
     }
 
+    // New user gets 0 balance
     usersList.push({ name, email, telegram, username, password, balance: 0 });
-    loggedInUserEmail = email;
-    res.redirect('/');
+    res.redirect(`/auth?mode=login`);
 });
 
-// Handle Login Processing (Only Email & Password)
+// Handle Login Processing (Query param to track logged in user)
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
     const user = usersList.find(u => u.email === email && u.password === password);
 
     if(user) {
-        loggedInUserEmail = user.email;
-        res.redirect('/');
+        res.redirect(`/?user=${encodeURIComponent(user.email)}`);
     } else {
         res.send(`<script>alert("ভুল জিমেইল অথবা পাসওয়ার্ড!"); window.location.href='/auth?mode=login';</script>`);
     }
@@ -198,7 +196,12 @@ app.post('/login', (req, res) => {
 
 // ================= USER PANEL ROUTE =================
 app.get('/', (req, res) => {
-    const currentUser = usersList.find(u => u.email === loggedInUserEmail) || usersList[0];
+    const userEmailQuery = req.query.user || usersList[0].email;
+    const currentUser = usersList.find(u => u.email === userEmailQuery) || usersList[0];
+
+    // Filter submissions and payment requests for THIS user only
+    const userSubmissions = submittedIds.filter(item => item.userEmail === currentUser.email);
+    const userPayments = paymentRequests.filter(pay => pay.userEmail === currentUser.email);
 
     res.send(`
     <!DOCTYPE html>
@@ -229,7 +232,6 @@ app.get('/', (req, res) => {
             .container { max-width: 900px; margin: 100px auto 40px auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; }
             .container.active-section { display: block; }
             
-            /* Section Header Description styling */
             .section-header-banner { text-align: center; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 15px; }
             .section-header-banner h2 { color: #f8fafc; font-size: 26px; font-weight: 700; margin-bottom: 5px; }
             .section-header-banner p { color: #38bdf8; font-size: 14px; font-weight: 500; }
@@ -267,9 +269,9 @@ app.get('/', (req, res) => {
                     <button class="close-btn" onclick="toggleSidebar()"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <ul class="sidebar-links">
-                    <li><a onclick="switchSection('homeSection', this)" class="active"><i class="fa-solid fa-house"></i> Home Dashboard</a></li>
-                    <li><a onclick="switchSection('reportSection', this)"><i class="fa-solid fa-chart-line"></i> Report & Claim</a></li>
-                    <li><a onclick="switchSection('paymentSection', this)"><i class="fa-solid fa-wallet"></i> Payment Request</a></li>
+                    <li><a id="nav-homeSection" onclick="switchSection('homeSection', this)"><i class="fa-solid fa-house"></i> Home Dashboard</a></li>
+                    <li><a id="nav-reportSection" onclick="switchSection('reportSection', this)"><i class="fa-solid fa-chart-line"></i> Report & Claim</a></li>
+                    <li><a id="nav-paymentSection" onclick="switchSection('paymentSection', this)"><i class="fa-solid fa-wallet"></i> Payment Request</a></li>
                 </ul>
             </div>
             <div class="sidebar-footer">
@@ -279,12 +281,13 @@ app.get('/', (req, res) => {
         </div>
 
         <!-- Home Section -->
-        <div id="homeSection" class="container active-section">
+        <div id="homeSection" class="container">
             <div class="section-header-banner">
                 <h2>✨ Secure ID Submission Dashboard ✨</h2>
                 <p>আপনার অ্যাকাউন্ট সুরক্ষিত রেখে খুব সহজেই গেম বা সোশ্যাল মিডিয়া আইডি জমা দিন।</p>
             </div>
             <form action="/submit-id" method="POST">
+                <input type="hidden" name="userEmail" value="${currentUser.email}">
                 <div class="form-group">
                     <label>Select Category:</label>
                     <select name="category" required>
@@ -306,14 +309,14 @@ app.get('/', (req, res) => {
                         <tr><th style="width: 120px;">Category</th><th>Details (File View)</th><th style="width: 100px;">Status</th><th style="width: 80px;">Action</th></tr>
                     </thead>
                     <tbody>
-                        ${submittedIds.map(item => `
+                        ${userSubmissions.length > 0 ? userSubmissions.map(item => `
                             <tr>
                                 <td><b>${item.category}</b></td>
                                 <td style="text-align: left; padding: 10px;">${formatAsFileBox(item.details, item.id)}</td>
                                 <td><span class="${item.status === 'Success' ? 'badge-success' : 'badge-pending'}">${item.status}</span></td>
-                                <td><a href="/delete/${item.id}" class="delete-btn">Delete</a></td>
+                                <td><a href="/delete/${item.id}?user=${encodeURIComponent(currentUser.email)}" class="delete-btn">Delete</a></td>
                             </tr>
-                        `).join('')}
+                        `).join('') : `<tr><td colspan="4" style="text-align: center; color: #94a3b8; padding: 15px;">কোনো সাবমিশন হিস্ট্রি নেই!</td></tr>`}
                     </tbody>
                 </table>
             </div>
@@ -352,6 +355,7 @@ app.get('/', (req, res) => {
                 <p>আপনার জমানো ব্যালেন্স বিকাশ, নগদ বা বাইন্যান্সের মাধ্যমে খুব দ্রুত উত্তোলন করুন।</p>
             </div>
             <form action="/request-payment" method="POST">
+                <input type="hidden" name="userEmail" value="${currentUser.email}">
                 <div class="form-group">
                     <label>Select Payment Method:</label>
                     <select name="method" required>
@@ -380,7 +384,7 @@ app.get('/', (req, res) => {
                         <tr><th>Method</th><th>Account Number</th><th>Amount</th><th>Status</th></tr>
                     </thead>
                     <tbody>
-                        ${paymentRequests.length > 0 ? paymentRequests.map(pay => `
+                        ${userPayments.length > 0 ? userPayments.map(pay => `
                             <tr>
                                 <td><b>${pay.method}</b></td>
                                 <td>${pay.number}</td>
@@ -397,28 +401,54 @@ app.get('/', (req, res) => {
             let userBalance = ${currentUser.balance};
             let currentClaimableUids = [];
             let currentClaimableAmount = 0;
+            const currentUserEmail = "${currentUser.email}";
 
             const adminReportsData = ${JSON.stringify(adminReports)};
             const claimedUidsStoreData = ${JSON.stringify(claimedUidsStore)};
             const categoryPrices = ${JSON.stringify(categories.reduce((acc, c) => ({...acc, [c.name]: c.price}), {}))};
 
+            // Maintain active section on page reload using localStorage
+            function switchSection(sectionId, element, saveToStorage = true) {
+                document.querySelectorAll('.container').forEach(el => el.classList.remove('active-section'));
+                document.getElementById(sectionId).classList.add('active-section');
+                document.querySelectorAll('.sidebar-links a').forEach(el => el.classList.remove('active'));
+                
+                if(element) {
+                    element.classList.add('active');
+                } else {
+                    const navEl = document.getElementById('nav-' + sectionId);
+                    if(navEl) navEl.classList.add('active');
+                }
+
+                if(saveToStorage) {
+                    localStorage.setItem('activeUserSection', sectionId);
+                }
+                
+                // Close sidebar if open
+                const sidebar = document.getElementById("mySidebar");
+                if(sidebar.style.left === "0px") {
+                    sidebar.style.left = "-260px";
+                }
+            }
+
+            // On load, restore the previous active section
+            window.onload = function() {
+                const savedSection = localStorage.getItem('activeUserSection') || 'homeSection';
+                switchSection(savedSection, null, false);
+            };
+
             function toggleSidebar() {
                 const sidebar = document.getElementById("mySidebar");
                 sidebar.style.left = sidebar.style.left === "0px" ? "-260px" : "0px";
             }
-            function switchSection(sectionId, element) {
-                document.querySelectorAll('.container').forEach(el => el.classList.remove('active-section'));
-                document.getElementById(sectionId).classList.add('active-section');
-                document.querySelectorAll('.sidebar-links a').forEach(el => el.classList.remove('active'));
-                element.classList.add('active');
-                toggleSidebar();
-            }
+
             function clearUserMatchResult() {
                 document.getElementById("matchResultBox").style.display = "none";
                 document.getElementById("matchedListContainer").innerHTML = "";
                 currentClaimableUids = [];
                 currentClaimableAmount = 0;
             }
+
             function checkUserUids() {
                 const category = document.getElementById("userReportCategory").value;
                 const rawText = document.getElementById("userUidsInput").value;
@@ -485,7 +515,7 @@ app.get('/', (req, res) => {
                 fetch('/claim-rewards', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ category: category, uids: currentClaimableUids })
+                    body: JSON.stringify({ email: currentUserEmail, category: category, uids: currentClaimableUids })
                 })
                 .then(res => res.json())
                 .then(data => {
@@ -509,24 +539,26 @@ app.get('/', (req, res) => {
 
 // Handle User ID Submission
 app.post('/submit-id', (req, res) => {
-    const { category, details } = req.body;
+    const { userEmail, category, details } = req.body;
     if (category && details) {
         submittedIds.push({
             id: submittedIds.length > 0 ? submittedIds[submittedIds.length - 1].id + 1 : 1,
+            userEmail: userEmail,
             category: category,
             details: details,
             status: "Pending"
         });
     }
-    res.redirect('/');
+    res.redirect(`/?user=${encodeURIComponent(userEmail)}`);
 });
 
 // Handle Claim Reward Endpoint
 app.post('/claim-rewards', (req, res) => {
-    const { category, uids } = req.body;
+    const { email, category, uids } = req.body;
     const pricePerId = categories.find(c => c.name === category)?.price || 0;
-    const currentUser = usersList.find(u => u.email === loggedInUserEmail) || usersList[0];
+    const currentUser = usersList.find(u => u.email === email);
     
+    if(!currentUser) return res.json({ success: false, message: "User not found!" });
     if(!claimedUidsStore[category]) claimedUidsStore[category] = [];
 
     let newValidUids = uids.filter(uid => !claimedUidsStore[category].includes(uid));
@@ -541,33 +573,35 @@ app.post('/claim-rewards', (req, res) => {
     }
 });
 
-// Handle Payment Request (Deduct from balance and save to history)
+// Handle Payment Request
 app.post('/request-payment', (req, res) => {
-    const { method, number, amount } = req.body;
+    const { userEmail, method, number, amount } = req.body;
     const reqAmount = parseFloat(amount);
-    const currentUser = usersList.find(u => u.email === loggedInUserEmail) || usersList[0];
+    const currentUser = usersList.find(u => u.email === userEmail);
 
-    if(reqAmount > 0 && reqAmount <= currentUser.balance) {
+    if(currentUser && reqAmount > 0 && reqAmount <= currentUser.balance) {
         currentUser.balance -= reqAmount;
         paymentRequests.push({
             id: paymentRequests.length > 0 ? paymentRequests[paymentRequests.length - 1].id + 1 : 1,
+            userEmail: userEmail,
             method: method,
             number: number,
             amount: reqAmount,
             status: "Pending"
         });
     }
-    res.redirect('/');
+    res.redirect(`/?user=${encodeURIComponent(userEmail)}`);
 });
 
 // Handle Delete ID
 app.get('/delete/:id', (req, res) => {
     const id = parseInt(req.params.id);
+    const userEmail = req.query.user;
     submittedIds = submittedIds.filter(s => s.id !== id);
     if(req.headers.referer && req.headers.referer.includes('/admin')) {
         res.redirect('/admin');
     } else {
-        res.redirect('/');
+        res.redirect(`/?user=${encodeURIComponent(userEmail)}`);
     }
 });
 
@@ -694,7 +728,7 @@ app.get('/admin', (req, res) => {
     <body>
         <div class="top-bar">
             <button class="menu-btn" onclick="toggleSidebar()"><i class="fa-solid fa-bars-staggered"></i></button>
-            <a href="/" class="back-btn-top"><i class="fa-solid fa-arrow-left"></i> User Panel</a>
+            <a href="/auth?mode=login" class="back-btn-top"><i class="fa-solid fa-arrow-left"></i> Logout</a>
         </div>
 
         <div id="mySidebar" class="sidebar">
@@ -704,20 +738,20 @@ app.get('/admin', (req, res) => {
                     <button class="close-btn" onclick="toggleSidebar()"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <ul class="sidebar-links">
-                    <li><a onclick="switchSection('paymentSection', this)" class="active"><i class="fa-solid fa-wallet"></i> Payment Requests</a></li>
-                    <li><a onclick="switchSection('categorySection', this)"><i class="fa-solid fa-folder-plus"></i> Category & Price</a></li>
-                    <li><a onclick="switchSection('reportSetSection', this)"><i class="fa-solid fa-file-lines"></i> Valid UIDs Setup</a></li>
-                    <li><a onclick="switchSection('idsSection', this)"><i class="fa-solid fa-table"></i> Submitted IDs</a></li>
+                    <li><a id="admin-nav-paymentSection" onclick="switchAdminSection('paymentSection', this)"><i class="fa-solid fa-wallet"></i> Payment Requests</a></li>
+                    <li><a id="admin-nav-categorySection" onclick="switchAdminSection('categorySection', this)"><i class="fa-solid fa-folder-plus"></i> Category & Price</a></li>
+                    <li><a id="admin-nav-reportSetSection" onclick="switchAdminSection('reportSetSection', this)"><i class="fa-solid fa-file-lines"></i> Valid UIDs Setup</a></li>
+                    <li><a id="admin-nav-idsSection" onclick="switchAdminSection('idsSection', this)"><i class="fa-solid fa-table"></i> Submitted IDs</a></li>
                 </ul>
             </div>
             <div class="sidebar-footer">
                 <div>Admin Panel</div>
-                <a href="/"><i class="fa-solid fa-user"></i> Go to User Panel</a>
+                <a href="/auth?mode=login"><i class="fa-solid fa-user"></i> Go to Login</a>
             </div>
         </div>
 
         <!-- 1. Payment Requests Section -->
-        <div id="paymentSection" class="container active-section">
+        <div id="paymentSection" class="container">
             <div class="section-header-banner">
                 <h2>💳 User Payment Requests Management 💳</h2>
                 <p>ইউজারদের পাঠানো পেমেন্ট রিকোয়েস্টগুলো যাচাই করুন এবং টাকা পাঠিয়ে সাকসেস করুন।</p>
@@ -726,6 +760,7 @@ app.get('/admin', (req, res) => {
                 <thead>
                     <tr>
                         <th style="width: 50px;">SL</th>
+                        <th>User Email</th>
                         <th>Method</th>
                         <th>Account Number</th>
                         <th>Amount</th>
@@ -737,6 +772,7 @@ app.get('/admin', (req, res) => {
                     ${paymentRequests.length > 0 ? paymentRequests.map((pay, idx) => `
                         <tr>
                             <td>${idx + 1}</td>
+                            <td style="font-size: 12px; color: #94a3b8;">${pay.userEmail}</td>
                             <td><b>${pay.method}</b></td>
                             <td>${pay.number}</td>
                             <td style="color: #10b981; font-weight: bold;">৳${pay.amount}</td>
@@ -748,7 +784,7 @@ app.get('/admin', (req, res) => {
                             </td>
                             <td><a href="/admin/delete-payment/${pay.id}" class="delete-btn">Delete</a></td>
                         </tr>
-                    `).join('') : `<tr><td colspan="6" style="text-align: center; color: #94a3b8; padding: 20px;">কোনো পেমেন্ট রিকোয়েস্ট নেই!</td></tr>`}
+                    `).join('') : `<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">কোনো পেমেন্ট রিকোয়েস্ট নেই!</td></tr>`}
                 </tbody>
             </table>
         </div>
@@ -851,17 +887,37 @@ app.get('/admin', (req, res) => {
 
         <script>
             const allReports = ${JSON.stringify(adminReports)};
-            
-            function toggleSidebar() {
-                const sidebar = document.getElementById("mySidebar");
-                sidebar.style.left = sidebar.style.left === "0px" ? "-260px" : "0px";
-            }
-            function switchSection(sectionId, element) {
+
+            function switchAdminSection(sectionId, element, saveToStorage = true) {
                 document.querySelectorAll('.container').forEach(el => el.classList.remove('active-section'));
                 document.getElementById(sectionId).classList.add('active-section');
                 document.querySelectorAll('.sidebar-links a').forEach(el => el.classList.remove('active'));
-                element.classList.add('active');
-                toggleSidebar();
+                
+                if(element) {
+                    element.classList.add('active');
+                } else {
+                    const navEl = document.getElementById('admin-nav-' + sectionId);
+                    if(navEl) navEl.classList.add('active');
+                }
+
+                if(saveToStorage) {
+                    localStorage.setItem('activeAdminSection', sectionId);
+                }
+                
+                const sidebar = document.getElementById("mySidebar");
+                if(sidebar.style.left === "0px") {
+                    sidebar.style.left = "-260px";
+                }
+            }
+
+            window.onload = function() {
+                const savedSection = localStorage.getItem('activeAdminSection') || 'paymentSection';
+                switchAdminSection(savedSection, null, false);
+            };
+
+            function toggleSidebar() {
+                const sidebar = document.getElementById("mySidebar");
+                sidebar.style.left = sidebar.style.left === "0px" ? "-260px" : "0px";
             }
             function loadCategoryUids(cat) {
                 const textarea = document.getElementById("reportUidsTextarea");
