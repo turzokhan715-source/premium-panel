@@ -1,1 +1,113 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Wallet - Premium Panel</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+
+<div class="panel">
+
+    <h2>Wallet</h2>
+
+
+    <div class="card">
+
+        <h3>Your Balance</h3>
+
+        <h1>
+            ৳ <%= user.balance %>
+        </h1>
+
+    </div>
+
+
+
+    <div class="card">
+
+        <h3>Withdraw Request</h3>
+
+
+        <form id="withdrawForm">
+
+
+            <input 
+            type="number"
+            name="amount"
+            placeholder="Amount"
+            required>
+
+
+            <input
+            type="text"
+            name="method"
+            placeholder="Payment Method"
+            required>
+
+
+            <button type="submit">
+                Send Request
+            </button>
+
+
+        </form>
+
+
+    </div>
+
+
+    <a href="/dashboard">
+        Back Dashboard
+    </a>
+
+
+</div>
+
+
+
+<script>
+
+document.getElementById("withdrawForm")
+.addEventListener("submit", async(e)=>{
+
+
+    e.preventDefault();
+
+
+    const data={
+
+        amount:e.target.amount.value,
+
+        method:e.target.method.value
+
+    };
+
+
+    const res=await fetch("/withdraw",{
+
+        method:"POST",
+
+        headers:{
+            "Content-Type":"application/json"
+        },
+
+        body:JSON.stringify(data)
+
+    });
+
+
+    const result=await res.json();
+
+
+    alert(result.message);
+
+
+});
+
+</script>
+
+
+</body>
+</html>
