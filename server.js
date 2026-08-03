@@ -45,8 +45,8 @@ app.get('/', (req, res) => {
             .form-group { margin-bottom: 20px; }
             label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #94a3b8; }
             
-            select, textarea { width: 100%; padding: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-size: 15px; color: white; outline: none; transition: 0.3s; }
-            select:focus, textarea:focus { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2); }
+            select, input, textarea { width: 100%; padding: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-size: 15px; color: white; outline: none; transition: 0.3s; }
+            select:focus, input:focus, textarea:focus { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2); }
             
             textarea { resize: vertical; height: 120px; }
 
@@ -88,7 +88,7 @@ app.get('/', (req, res) => {
                 <ul class="sidebar-links">
                     <li><a onclick="switchSection('homeSection', this)" class="active"><i class="fa-solid fa-house"></i> Home</a></li>
                     <li><a onclick="switchSection('reportSection', this)"><i class="fa-solid fa-chart-line"></i> Report</a></li>
-                    <li><a onclick="alert('Payment পেজটি শীঘ্রই আসছে!')"><i class="fa-solid fa-wallet"></i> Payment</a></li>
+                    <li><a onclick="switchSection('paymentSection', this)"><i class="fa-solid fa-wallet"></i> Payment</a></li>
                 </ul>
             </div>
             <div class="sidebar-footer">
@@ -96,11 +96,11 @@ app.get('/', (req, res) => {
             </div>
         </div>
 
-        <!-- Home Section (With History) -->
+        <!-- Home Section (ID Sell) -->
         <div id="homeSection" class="container active-section">
             <h2>✨ Sell Your ID Securely ✨</h2>
             
-            <form onsubmit="submitID(event, 'historyTable')">
+            <form onsubmit="submitID(event)">
                 <div class="form-group">
                     <label>Select Category:</label>
                     <select id="category" required>
@@ -143,7 +143,7 @@ app.get('/', (req, res) => {
             </div>
         </div>
 
-        <!-- Report Section (Without History) -->
+        <!-- Report Section -->
         <div id="reportSection" class="container">
             <h2>📊 ID Submission Report Form 📊</h2>
             
@@ -168,6 +168,60 @@ app.get('/', (req, res) => {
             </form>
         </div>
 
+        <!-- Payment Section -->
+        <div id="paymentSection" class="container">
+            <h2>💳 Request Payment 💳</h2>
+            
+            <form onsubmit="submitPayment(event)">
+                <div class="form-group">
+                    <label>Select Payment Method:</label>
+                    <select id="payMethod" required>
+                        <option value="">-- Select Method --</option>
+                        <option value="Bkash">Bkash</option>
+                        <option value="Nagad">Nagad</option>
+                        <option value="Rocket">Rocket</option>
+                        <option value="Binance">Binance</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Account / Wallet Number:</label>
+                    <input type="text" id="payNumber" placeholder="আপনার বিকাশ/নগদ/রকেট/বাইন্যান্স নাম্বার দিন..." required>
+                </div>
+
+                <div class="form-group">
+                    <label>Amount (BDT):</label>
+                    <input type="number" id="payAmount" placeholder="টাকার পরিমাণ লিখুন..." required>
+                </div>
+
+                <button type="submit" class="submit-btn"><i class="fa-solid fa-paper-plane"></i> Send Payment Request</button>
+            </form>
+
+            <div class="history-section">
+                <h3>Payment Requests History</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Number</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="paymentHistoryTable">
+                        <tr>
+                            <td>Bkash</td>
+                            <td>01700000000</td>
+                            <td>৳500</td>
+                            <td><span class="badge-pending">Pending</span></td>
+                            <td><button class="delete-btn" onclick="this.parentElement.parentElement.remove()">Delete</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <script>
             function toggleSidebar() {
                 const sidebar = document.getElementById("mySidebar");
@@ -184,12 +238,11 @@ app.get('/', (req, res) => {
                 toggleSidebar();
             }
 
-            function submitID(event, tableId) {
+            function submitID(event) {
                 event.preventDefault();
-                
                 const category = document.getElementById("category").value;
                 const details = document.getElementById("details").value;
-                const table = document.getElementById(tableId);
+                const table = document.getElementById("historyTable");
 
                 const newRow = document.createElement("tr");
                 newRow.innerHTML = '<td>' + category + '</td><td>' + details + '</td><td><span class="badge-pending">Pending</span></td><td><button class="delete-btn" onclick="this.parentElement.parentElement.remove()">Delete</button></td>';
@@ -203,6 +256,21 @@ app.get('/', (req, res) => {
                 event.preventDefault();
                 event.target.reset();
                 alert("রিপোর্ট সফলভাবে সাবমিট হয়েছে!");
+            }
+
+            function submitPayment(event) {
+                event.preventDefault();
+                const method = document.getElementById("payMethod").value;
+                const number = document.getElementById("payNumber").value;
+                const amount = document.getElementById("payAmount").value;
+                const table = document.getElementById("paymentHistoryTable");
+
+                const newRow = document.createElement("tr");
+                newRow.innerHTML = '<td>' + method + '</td><td>' + number + '</td><td>৳' + amount + '</td><td><span class="badge-pending">Pending</span></td><td><button class="delete-btn" onclick="this.parentElement.parentElement.remove()">Delete</button></td>';
+
+                table.prepend(newRow);
+                event.target.reset();
+                alert("পেমেন্ট রিকোয়েস্ট সফলভাবে পাঠানো হয়েছে!");
             }
         </script>
     </body>
