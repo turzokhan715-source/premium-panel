@@ -302,7 +302,7 @@ app.get('/', (req, res) => {
             </div>
             <div class="sidebar-footer">
                 <div>Support Admin:</div>
-                <a href="https://web.telegram.org/a/#8629952050" target="_blank"><i class="fa-brands fa-telegram"></i> @Gmail_generator1</a>
+                <a href="https://t.me/XINPANEL_CHANNEL" target="_blank"><i class="fa-brands fa-telegram"></i> XINPANEL_CHANNEL</a>
             </div>
         </div>
 
