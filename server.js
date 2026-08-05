@@ -516,7 +516,7 @@ app.get('/', (req, res) => {
                         badgeText = " (Invalid)";
                     }
 
-                    containerHtml += \`<div style="background: \${bgColor}; border: 1px solid \${borderColor}; color: \${textColor}; padding: 5px 10px; border-radius: 6px; font-weight: bold; font-size: 12px;">\${uid}\${badgeText}</div>\`;
+                    containerHtml += `<div style="background: ${bgColor}; border: 1px solid ${borderColor}; color: ${textColor}; padding: 5px 10px; border-radius: 6px; font-weight: bold; font-size: 12px;">${uid}${badgeText}</div>`;
                 });
 
                 document.getElementById("matchedListContainer").innerHTML = containerHtml;
@@ -525,7 +525,7 @@ app.get('/', (req, res) => {
                 const claimBtn = document.getElementById("claimBtn");
                 if(currentClaimableUids.length > 0) {
                     claimBtn.style.display = "block";
-                    claimBtn.innerHTML = \`<i class="fa-solid fa-hand-holding-dollar"></i> Claim Reward (\${currentClaimableUids.length} New Valid IDs = ৳\${currentClaimableAmount})\`;
+                    claimBtn.innerHTML = `<i class="fa-solid fa-hand-holding-dollar"></i> Claim Reward (${currentClaimableUids.length} New Valid IDs = ৳${currentClaimableAmount})`;
                 } else {
                     claimBtn.style.display = "none";
                 }
