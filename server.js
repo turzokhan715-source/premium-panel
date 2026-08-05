@@ -1,28 +1,82 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// In-Memory Database
-let categories = [
-    { name: "Free Fire", price: 50 },
-    { name: "Facebook", price: 100 },
-    { name: "Gmail", price: 30 },
-    { name: "Page", price: 200 }
-];
+// JSON File Path for Persistent Storage
+const DATA_FILE = path.join(__dirname, 'database.json');
 
-let submittedIds = [];
-let adminReports = {};
-let claimedUidsStore = {
-    "Free Fire": [],
-    "Facebook": [],
-    "Gmail": [],
-    "Page": []
+// Initial Default Data
+const defaultData = {
+    categories: [
+        { name: "Free Fire", price: 50 },
+        { name: "Facebook", price: 100 },
+        { name: "Gmail", price: 30 },
+        { name: "Page", price: 200 }
+    ],
+    submittedIds: [],
+    adminReports: {},
+    claimedUidsStore: {
+        "Free Fire": [],
+        "Facebook": [],
+        "Gmail": [],
+        "Page": []
+    },
+    paymentRequests: [],
+    usersList: []
 };
-let paymentRequests = [];
-let usersList = [];
+
+// Load Data from JSON File
+function loadData() {
+    try {
+        if (fs.existsSync(DATA_FILE)) {
+            const fileData = fs.readFileSync(DATA_FILE, 'utf8');
+            const parsed = JSON.parse(fileData);
+            return {
+                categories: parsed.categories || defaultData.categories,
+                submittedIds: parsed.submittedIds || defaultData.submittedIds,
+                adminReports: parsed.adminReports || defaultData.adminReports,
+                claimedUidsStore: parsed.claimedUidsStore || defaultData.claimedUidsStore,
+                paymentRequests: parsed.paymentRequests || defaultData.paymentRequests,
+                usersList: parsed.usersList || defaultData.usersList
+            };
+        }
+    } catch (err) {
+        console.error("Error reading database file, using defaults:", err);
+    }
+    return JSON.parse(JSON.stringify(defaultData));
+}
+
+// Save Data to JSON File
+function saveData() {
+    try {
+        const dataToSave = {
+            categories,
+            submittedIds,
+            adminReports,
+            claimedUidsStore,
+            paymentRequests,
+            usersList
+        };
+        fs.writeFileSync(DATA_FILE, JSON.stringify(dataToSave, null, 2), 'utf8');
+    } catch (err) {
+        console.error("Error saving database file:", err);
+    }
+}
+
+// Initialize active database variables
+let db = loadData();
+let categories = db.categories;
+let submittedIds = db.submittedIds;
+let adminReports = db.adminReports;
+let claimedUidsStore = db.claimedUidsStore;
+let paymentRequests = db.paymentRequests;
+let usersList = db.usersList;
+
 let adminAuthenticatedSessions = {}; // Admin session storage
 
 // Helper function: Fixed design for file box layout
@@ -143,6 +197,7 @@ app.post('/register', (req, res) => {
         return res.send(`<script>alert("এই জিমেইল অথবা ইউজারনেম দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট খোলা রয়েছে!"); window.location.href='/auth?mode=register';</script>`);
     }
     usersList.push({ name, email, telegram, username, password, balance: 0 });
+    saveData();
     res.redirect(`/auth?mode=login`);
 });
 
@@ -571,6 +626,7 @@ app.post('/submit-id', (req, res) => {
             details: details,
             status: "Pending"
         });
+        saveData();
     }
     res.redirect(`/?user=${encodeURIComponent(userEmail)}`);
 });
@@ -590,6 +646,7 @@ app.post('/claim-rewards', (req, res) => {
     if(earnedAmount > 0) {
         claimedUidsStore[category].push(...newValidUids);
         currentUser.balance += earnedAmount;
+        saveData();
         res.json({ success: true, newBalance: currentUser.balance, addedAmount: earnedAmount });
     } else {
         res.json({ success: false, message: "এই ইউআইডিগুলো ইতিমধ্যে ক্লেম করা হয়েছে!" });
@@ -612,6 +669,7 @@ app.post('/request-payment', (req, res) => {
             amount: reqAmount,
             status: "Pending"
         });
+        saveData();
     }
     res.redirect(`/?user=${encodeURIComponent(userEmail)}`);
 });
@@ -621,6 +679,7 @@ app.get('/delete/:id', (req, res) => {
     const id = parseInt(req.params.id);
     const userEmail = req.query.user;
     submittedIds = submittedIds.filter(s => s.id !== id);
+    saveData();
     if(req.headers.referer && req.headers.referer.includes('/admin')) {
         res.redirect('/admin');
     } else {
@@ -631,6 +690,7 @@ app.get('/delete/:id', (req, res) => {
 app.get('/admin/delete-payment/:id', (req, res) => {
     const id = parseInt(req.params.id);
     paymentRequests = paymentRequests.filter(p => p.id !== id);
+    saveData();
     res.redirect('/admin');
 });
 
@@ -650,14 +710,20 @@ app.get('/admin/download/:id', (req, res) => {
 app.post('/admin/update-status/:id', (req, res) => {
     const id = parseInt(req.params.id);
     const item = submittedIds.find(s => s.id === id);
-    if(item) item.status = "Success";
+    if(item) {
+        item.status = "Success";
+        saveData();
+    }
     res.redirect('/admin');
 });
 
 app.post('/admin/update-payment/:id', (req, res) => {
     const id = parseInt(req.params.id);
     const payment = paymentRequests.find(p => p.id === id);
-    if(payment) payment.status = "Success";
+    if(payment) {
+        payment.status = "Success";
+        saveData();
+    }
     res.redirect('/admin');
 });
 
@@ -667,6 +733,7 @@ app.post('/admin/add-category', (req, res) => {
         if (!categories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
             categories.push({ name, price: parseFloat(price) });
             if(!claimedUidsStore[name]) claimedUidsStore[name] = [];
+            saveData();
         }
     }
     res.redirect('/admin');
@@ -675,6 +742,7 @@ app.post('/admin/add-category', (req, res) => {
 app.get('/admin/delete-category/:name', (req, res) => {
     const catName = req.params.name;
     categories = categories.filter(c => c.name !== catName);
+    saveData();
     res.redirect('/admin');
 });
 
@@ -683,6 +751,7 @@ app.post('/admin/save-report', (req, res) => {
     if (category) {
         const uidArray = uids ? uids.split(/[\n,]+/).map(u => u.trim()).filter(u => u.length > 0) : [];
         adminReports[category] = uidArray;
+        saveData();
     }
     res.redirect('/admin');
 });
