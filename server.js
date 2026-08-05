@@ -28,21 +28,21 @@ let adminAuthenticatedSessions = {}; // Admin session storage
 // Helper function: Fixed design for file box layout
 function formatAsFileBox(detailsText, itemId) {
     const lines = detailsText.split('\n').filter(line => line.trim() !== '');
-    let fileHtml = `<div style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 450px;">`;
+    let fileHtml = '<div style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 450px;">';
     
-    fileHtml += `<div style="background: #0f172a; border: 1px solid #334155; border-radius: 6px; text-align: left; max-height: 150px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 11px; display: flex;">`;
+    fileHtml += '<div style="background: #0f172a; border: 1px solid #334155; border-radius: 6px; text-align: left; max-height: 150px; overflow-y: auto; font-family: \'Courier New\', Courier, monospace; font-size: 11px; display: flex;">';
     
-    fileHtml += `<div style="background: #1e293b; color: #64748b; padding: 8px 8px; user-select: none; border-right: 1px solid #334155; text-align: right;">`;
-    lines.forEach((_, idx) => { fileHtml += `<div>${idx + 1}</div>`; });
-    fileHtml += `</div>`;
+    fileHtml += '<div style="background: #1e293b; color: #64748b; padding: 8px 8px; user-select: none; border-right: 1px solid #334155; text-align: right;">';
+    lines.forEach((_, idx) => { fileHtml += '<div>' + (idx + 1) + '</div>'; });
+    fileHtml += '</div>';
 
-    fileHtml += `<div style="padding: 8px 10px; color: #e2e8f0; white-space: pre-wrap; word-break: break-all; flex-grow: 1;">`;
-    lines.forEach(line => { fileHtml += `<div>${line}</div>`; });
-    fileHtml += `</div></div>`;
+    fileHtml += '<div style="padding: 8px 10px; color: #e2e8f0; white-space: pre-wrap; word-break: break-all; flex-grow: 1;">';
+    lines.forEach(line => { fileHtml += '<div>' + line + '</div>'; });
+    fileHtml += '</div></div>';
 
-    fileHtml += `<a href="/admin/download/${itemId}" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.4); padding: 5px 10px; border-radius: 5px; font-size: 12px; text-decoration: none; font-weight: bold; width: fit-content;"><i class="fa-solid fa-download"></i> Download File (.txt)</a>`;
+    fileHtml += '<a href="/admin/download/' + itemId + '" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.4); padding: 5px 10px; border-radius: 5px; font-size: 12px; text-decoration: none; font-weight: bold; width: fit-content;"><i class="fa-solid fa-download"></i> Download File (.txt)</a>';
     
-    fileHtml += `</div>`;
+    fileHtml += '</div>';
     return fileHtml;
 }
 
@@ -516,7 +516,7 @@ app.get('/', (req, res) => {
                         badgeText = " (Invalid)";
                     }
 
-                    containerHtml += `<div style="background: ${bgColor}; border: 1px solid ${borderColor}; color: ${textColor}; padding: 5px 10px; border-radius: 6px; font-weight: bold; font-size: 12px;">${uid}${badgeText}</div>`;
+                    containerHtml += '<div style="background: ' + bgColor + '; border: 1px solid ' + borderColor + '; color: ' + textColor + '; padding: 5px 10px; border-radius: 6px; font-weight: bold; font-size: 12px;">' + uid + badgeText + '</div>';
                 });
 
                 document.getElementById("matchedListContainer").innerHTML = containerHtml;
@@ -525,7 +525,7 @@ app.get('/', (req, res) => {
                 const claimBtn = document.getElementById("claimBtn");
                 if(currentClaimableUids.length > 0) {
                     claimBtn.style.display = "block";
-                    claimBtn.innerHTML = `<i class="fa-solid fa-hand-holding-dollar"></i> Claim Reward (${currentClaimableUids.length} New Valid IDs = ৳${currentClaimableAmount})`;
+                    claimBtn.innerHTML = '<i class="fa-solid fa-hand-holding-dollar"></i> Claim Reward (' + currentClaimableUids.length + ' New Valid IDs = ৳' + currentClaimableAmount + ')';
                 } else {
                     claimBtn.style.display = "none";
                 }
