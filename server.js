@@ -318,7 +318,7 @@ app.get('/', (req, res) => {
                     <label>Select Category:</label>
                     <select name="category" required>
                         <option value="">-- Select Category --</option>
-                        ${categories.map(c => `<option value="${c.name}">${c.name} (Price: ৳${c.price})</option>`).join('')}
+                        ${categories.map(c => '<option value="' + c.name + '">' + c.name + ' (Price: ৳' + c.price + ')</option>').join('')}
                     </select>
                 </div>
                 <div class="form-group">
@@ -358,7 +358,7 @@ app.get('/', (req, res) => {
                 <label>Select Category:</label>
                 <select id="userReportCategory" onchange="clearUserMatchResult()">
                     <option value="">-- Select Category --</option>
-                    ${categories.map(c => `<option value="${c.name}">${c.name} (৳${c.price} per valid ID)</option>`).join('')}
+                    ${categories.map(c => '<option value="' + c.name + '">' + c.name + ' (৳' + c.price + ' per valid ID)</option>').join('')}
                 </select>
             </div>
             <div class="form-group">
@@ -638,7 +638,7 @@ app.get('/admin/download/:id', (req, res) => {
     const id = parseInt(req.params.id);
     const item = submittedIds.find(s => s.id === id);
     if(item) {
-        res.setHeader('Content-disposition', `attachment; filename=${item.category}_ID_${item.id}.txt`);
+        res.setHeader('Content-disposition', 'attachment; filename=' + item.category + '_ID_' + item.id + '.txt');
         res.setHeader('Content-type', 'text/plain');
         res.write(item.details);
         res.end();
@@ -859,7 +859,7 @@ app.get('/admin', (req, res) => {
                     <label>Select Category:</label>
                     <select name="category" id="reportCatSelect" required onchange="loadCategoryUids(this.value)">
                         <option value="">-- Select Category --</option>
-                        ${categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+                        ${categories.map(c => '<option value="' + c.name + '">' + c.name + '</option>').join('')}
                     </select>
                 </div>
                 <div class="form-group">
@@ -880,7 +880,7 @@ app.get('/admin', (req, res) => {
                 <label>Filter Submitted IDs by Category:</label>
                 <select id="filterCategory" onchange="filterByCategory(this.value)">
                     <option value="">-- All Categories --</option>
-                    ${categories.map(c => `<option value="${c.name}" ${selectedCategory === c.name ? 'selected' : ''}>${c.name}</option>`).join('')}
+                    ${categories.map(c => '<option value="' + c.name + '" ' + (selectedCategory === c.name ? 'selected' : '') + '>' + c.name + '</option>').join('')}
                 </select>
             </div>
 
