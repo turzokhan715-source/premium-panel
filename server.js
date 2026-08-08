@@ -1,5 +1,5 @@
 const express = require('express');
-const fs = require('fs');
+const mongoose = require('mongoose');
 const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -7,8 +7,26 @@ const PORT = process.env.PORT || 3000;
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// JSON File Path for Persistent Storage
-const DATA_FILE = path.join(__dirname, 'database.json');
+// ================= MONGODB CLOUD DATABASE CONNECTION =================
+// আপনার MongoDB Atlas কানেকশন স্ট্রিং এখানে দিন (অথবা এনভায়রনমেন্ট ভেরিয়েবলে MONGODB_URI সেট করুন)
+const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://your_username:your_password@cluster.mongodb.net/idsellportal?retryWrites=true&w=majority";
+
+mongoose.connect(MONGO_URI)
+    .then(() => console.log("Connected to MongoDB Atlas Successfully!"))
+    .catch(err => console.error("MongoDB Connection Error:", err));
+
+// Define Mongoose Schema for Persistent Storage
+const appSchema = new mongoose.Schema({
+    key: { type: String, required: true, unique: true },
+    categories: Array,
+    submittedIds: Array,
+    adminReports: Object,
+    claimedUidsStore: Object,
+    paymentRequests: Array,
+    usersList: Array
+});
+
+const AppData = mongoose.model('AppData', appSchema);
 
 // Initial Default Data
 const defaultData = {
@@ -30,52 +48,59 @@ const defaultData = {
     usersList: []
 };
 
-// Load Data from JSON File
-function loadData() {
+// Global Memory Variables
+let categories = [];
+let submittedIds = [];
+let adminReports = {};
+let claimedUidsStore = {};
+let paymentRequests = [];
+let usersList = [];
+
+// Load Data from MongoDB on Startup
+async function loadDataFromDB() {
     try {
-        if (fs.existsSync(DATA_FILE)) {
-            const fileData = fs.readFileSync(DATA_FILE, 'utf8');
-            const parsed = JSON.parse(fileData);
-            return {
-                categories: parsed.categories || defaultData.categories,
-                submittedIds: parsed.submittedIds || defaultData.submittedIds,
-                adminReports: parsed.adminReports || defaultData.adminReports,
-                claimedUidsStore: parsed.claimedUidsStore || defaultData.claimedUidsStore,
-                paymentRequests: parsed.paymentRequests || defaultData.paymentRequests,
-                usersList: parsed.usersList || defaultData.usersList
-            };
+        let record = await AppData.findOne({ key: 'main_storage' });
+        if (!record) {
+            record = new AppData({ key: 'main_storage', ...defaultData });
+            await record.save();
         }
+        categories = record.categories || defaultData.categories;
+        submittedIds = record.submittedIds || defaultData.submittedIds;
+        adminReports = record.adminReports || defaultData.adminReports;
+        claimedUidsStore = record.claimedUidsStore || defaultData.claimedUidsStore;
+        paymentRequests = record.paymentRequests || defaultData.paymentRequests;
+        usersList = record.usersList || defaultData.usersList;
+        console.log("Data loaded successfully from MongoDB!");
     } catch (err) {
-        console.error("Error reading database file, using defaults:", err);
+        console.error("Error loading data from MongoDB, using defaults:", err);
+        categories = defaultData.categories;
+        submittedIds = defaultData.submittedIds;
+        adminReports = defaultData.adminReports;
+        claimedUidsStore = defaultData.claimedUidsStore;
+        paymentRequests = defaultData.paymentRequests;
+        usersList = defaultData.usersList;
     }
-    return JSON.parse(JSON.stringify(defaultData));
 }
 
-// Save Data to JSON File
-function saveData() {
+// Save Data to MongoDB
+async function saveData() {
     try {
-        const dataToSave = {
-            categories,
-            submittedIds,
-            adminReports,
-            claimedUidsStore,
-            paymentRequests,
-            usersList
-        };
-        fs.writeFileSync(DATA_FILE, JSON.stringify(dataToSave, null, 2), 'utf8');
+        await AppData.findOneAndUpdate(
+            { key: 'main_storage' },
+            {
+                categories,
+                submittedIds,
+                adminReports,
+                claimedUidsStore,
+                paymentRequests,
+                usersList
+            },
+            { upsert: true, new: true }
+        );
     } catch (err) {
-        console.error("Error saving database file:", err);
+        console.error("Error saving data to MongoDB:", err);
     }
 }
-
-// Initialize active database variables
-let db = loadData();
-let categories = db.categories;
-let submittedIds = db.submittedIds;
-let adminReports = db.adminReports;
-let claimedUidsStore = db.claimedUidsStore;
-let paymentRequests = db.paymentRequests;
-let usersList = db.usersList;
 
 let adminAuthenticatedSessions = {}; // Admin session storage
 
@@ -190,14 +215,14 @@ app.get('/auth', (req, res) => {
 });
 
 // Handle Registration Processing
-app.post('/register', (req, res) => {
+app.post('/register', async (req, res) => {
     const { name, email, telegram, username, password } = req.body;
     const exists = usersList.find(u => u.email === email || u.username === username);
     if(exists) {
         return res.send(`<script>alert("এই জিমেইল অথবা ইউজারনেম দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট খোলা রয়েছে!"); window.location.href='/auth?mode=register';</script>`);
     }
     usersList.push({ name, email, telegram, username, password, balance: 0 });
-    saveData();
+    await saveData();
     res.redirect(`/auth?mode=login`);
 });
 
@@ -616,7 +641,7 @@ app.get('/', (req, res) => {
 });
 
 // Handle User ID Submission
-app.post('/submit-id', (req, res) => {
+app.post('/submit-id', async (req, res) => {
     const { userEmail, category, details } = req.body;
     if (category && details) {
         submittedIds.push({
@@ -626,13 +651,13 @@ app.post('/submit-id', (req, res) => {
             details: details,
             status: "Pending"
         });
-        saveData();
+        await saveData();
     }
     res.redirect(`/?user=${encodeURIComponent(userEmail)}`);
 });
 
 // Handle Claim Reward Endpoint
-app.post('/claim-rewards', (req, res) => {
+app.post('/claim-rewards', async (req, res) => {
     const { email, category, uids } = req.body;
     const pricePerId = categories.find(c => c.name === category)?.price || 0;
     const currentUser = usersList.find(u => u.email === email);
@@ -646,7 +671,7 @@ app.post('/claim-rewards', (req, res) => {
     if(earnedAmount > 0) {
         claimedUidsStore[category].push(...newValidUids);
         currentUser.balance += earnedAmount;
-        saveData();
+        await saveData();
         res.json({ success: true, newBalance: currentUser.balance, addedAmount: earnedAmount });
     } else {
         res.json({ success: false, message: "এই ইউআইডিগুলো ইতিমধ্যে ক্লেম করা হয়েছে!" });
@@ -654,7 +679,7 @@ app.post('/claim-rewards', (req, res) => {
 });
 
 // Handle Payment Request
-app.post('/request-payment', (req, res) => {
+app.post('/request-payment', async (req, res) => {
     const { userEmail, method, number, amount } = req.body;
     const reqAmount = parseFloat(amount);
     const currentUser = usersList.find(u => u.email === userEmail);
@@ -669,17 +694,17 @@ app.post('/request-payment', (req, res) => {
             amount: reqAmount,
             status: "Pending"
         });
-        saveData();
+        await saveData();
     }
     res.redirect(`/?user=${encodeURIComponent(userEmail)}`);
 });
 
 // Handle Delete ID
-app.get('/delete/:id', (req, res) => {
+app.get('/delete/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     const userEmail = req.query.user;
     submittedIds = submittedIds.filter(s => s.id !== id);
-    saveData();
+    await saveData();
     if(req.headers.referer && req.headers.referer.includes('/admin')) {
         res.redirect('/admin');
     } else {
@@ -687,10 +712,10 @@ app.get('/delete/:id', (req, res) => {
     }
 });
 
-app.get('/admin/delete-payment/:id', (req, res) => {
+app.get('/admin/delete-payment/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     paymentRequests = paymentRequests.filter(p => p.id !== id);
-    saveData();
+    await saveData();
     res.redirect('/admin');
 });
 
@@ -707,51 +732,51 @@ app.get('/admin/download/:id', (req, res) => {
     }
 });
 
-app.post('/admin/update-status/:id', (req, res) => {
+app.post('/admin/update-status/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     const item = submittedIds.find(s => s.id === id);
     if(item) {
         item.status = "Success";
-        saveData();
+        await saveData();
     }
     res.redirect('/admin');
 });
 
-app.post('/admin/update-payment/:id', (req, res) => {
+app.post('/admin/update-payment/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     const payment = paymentRequests.find(p => p.id === id);
     if(payment) {
         payment.status = "Success";
-        saveData();
+        await saveData();
     }
     res.redirect('/admin');
 });
 
-app.post('/admin/add-category', (req, res) => {
+app.post('/admin/add-category', async (req, res) => {
     const { name, price } = req.body;
     if (name && price) {
         if (!categories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
             categories.push({ name, price: parseFloat(price) });
             if(!claimedUidsStore[name]) claimedUidsStore[name] = [];
-            saveData();
+            await saveData();
         }
     }
     res.redirect('/admin');
 });
 
-app.get('/admin/delete-category/:name', (req, res) => {
+app.get('/admin/delete-category/:name', async (req, res) => {
     const catName = req.params.name;
     categories = categories.filter(c => c.name !== catName);
-    saveData();
+    await saveData();
     res.redirect('/admin');
 });
 
-app.post('/admin/save-report', (req, res) => {
+app.post('/admin/save-report', async (req, res) => {
     const { category, uids } = req.body;
     if (category) {
         const uidArray = uids ? uids.split(/[\n,]+/).map(u => u.trim()).filter(u => u.length > 0) : [];
         adminReports[category] = uidArray;
-        saveData();
+        await saveData();
     }
     res.redirect('/admin');
 });
@@ -1039,6 +1064,9 @@ app.get('/admin', (req, res) => {
     `);
 });
 
-app.listen(PORT, () => {
-    console.log("Server is running on port " + PORT);
+// Start Server after loading data from DB
+loadDataFromDB().then(() => {
+    app.listen(PORT, () => {
+        console.log("Server is running on port " + PORT);
+    });
 });
